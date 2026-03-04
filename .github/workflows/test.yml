@@ -1,0 +1,280 @@
+name: Test & Lint
+
+on:
+  pull_request:
+    branches: [main, staging]
+  push:
+    branches: [main, staging]
+
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ─────────────────────────────────────────────────────────────
+  # Detect which packages changed
+  # ─────────────────────────────────────────────────────────────
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      api:         ${{ steps.filter.outputs.api }}
+      admin:       ${{ steps.filter.outputs.admin }}
+      store:       ${{ steps.filter.outputs.store }}
+      super-admin: ${{ steps.filter.outputs.super-admin }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            api:
+              - 'services/api/**'
+              - 'package.json'
+            admin:
+              - 'apps/admin/**'
+              - 'package.json'
+            store:
+              - 'apps/store/**'
+              - 'package.json'
+            super-admin:
+              - 'apps/super-admin/**'
+              - 'package.json'
+
+  # ─────────────────────────────────────────────────────────────
+  # API — TypeScript check, lint, unit tests
+  # ─────────────────────────────────────────────────────────────
+  test-api:
+    name: API Tests
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.api == 'true'
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: test_user
+          POSTGRES_PASSWORD: test_password
+          POSTGRES_DB: ecommerce_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: services/api/package-lock.json
+
+      - name: Install dependencies
+        working-directory: services/api
+        run: npm ci
+
+      - name: TypeScript type check
+        working-directory: services/api
+        run: npx tsc --noEmit
+
+      - name: Run ESLint
+        working-directory: services/api
+        run: npx eslint src --ext .ts --max-warnings 0 || true
+
+      - name: Generate Prisma client
+        working-directory: services/api
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/ecommerce_test
+        run: npx prisma generate
+
+      - name: Run migrations
+        working-directory: services/api
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/ecommerce_test
+        run: npx prisma migrate deploy
+
+      - name: Run unit tests
+        working-directory: services/api
+        env:
+          DATABASE_URL: postgresql://test_user:test_password@localhost:5432/ecommerce_test
+          JWT_SECRET: test-jwt-secret-min-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+          ENCRYPTION_KEY: 00000000000000000000000000000000
+          NODE_ENV: test
+        run: npm test --if-present
+
+  # ─────────────────────────────────────────────────────────────
+  # Admin — TypeScript, lint, build check
+  # ─────────────────────────────────────────────────────────────
+  test-admin:
+    name: Admin Build Check
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.admin == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/admin/package-lock.json
+      - name: Install dependencies
+        working-directory: apps/admin
+        run: npm ci
+      - name: TypeScript type check
+        working-directory: apps/admin
+        run: npx tsc --noEmit
+      - name: Next.js build check
+        working-directory: apps/admin
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+          SKIP_ENV_VALIDATION: true
+        run: npm run build
+
+  # ─────────────────────────────────────────────────────────────
+  # Store — TypeScript, lint, build check
+  # ─────────────────────────────────────────────────────────────
+  test-store:
+    name: Store Build Check
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.store == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/store/package-lock.json
+      - name: Install dependencies
+        working-directory: apps/store
+        run: npm ci
+      - name: TypeScript type check
+        working-directory: apps/store
+        run: npx tsc --noEmit
+      - name: Next.js build check
+        working-directory: apps/store
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+          SKIP_ENV_VALIDATION: true
+        run: npm run build
+
+  # ─────────────────────────────────────────────────────────────
+  # Super Admin — TypeScript, lint, build check
+  # ─────────────────────────────────────────────────────────────
+  test-super-admin:
+    name: Super Admin Build Check
+    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.super-admin == 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: apps/super-admin/package-lock.json
+      - name: Install dependencies
+        working-directory: apps/super-admin
+        run: npm ci
+      - name: TypeScript type check
+        working-directory: apps/super-admin
+        run: npx tsc --noEmit
+      - name: Next.js build check
+        working-directory: apps/super-admin
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:3001
+          SKIP_ENV_VALIDATION: true
+        run: npm run build
+
+  # ─────────────────────────────────────────────────────────────
+  # Security audit — check for known vulnerabilities
+  # ─────────────────────────────────────────────────────────────
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Audit API dependencies
+        working-directory: services/api
+        run: npm audit --audit-level=high --production || true
+
+      - name: Audit Admin dependencies
+        working-directory: apps/admin
+        run: npm audit --audit-level=high --production || true
+
+      - name: Audit Store dependencies
+        working-directory: apps/store
+        run: npm audit --audit-level=high --production || true
+
+      - name: Audit Super Admin dependencies
+        working-directory: apps/super-admin
+        run: npm audit --audit-level=high --production || true
+
+      - name: Run Trivy vulnerability scanner
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'table'
+          exit-code: '1'
+          severity: 'CRITICAL,HIGH'
+
+  # ─────────────────────────────────────────────────────────────
+  # Docker build validation — ensure images build cleanly
+  # ─────────────────────────────────────────────────────────────
+  docker-build-check:
+    name: Docker Build Check
+    runs-on: ubuntu-latest
+    needs: changes
+    strategy:
+      matrix:
+        include:
+          - name: api
+            context: services/api
+            changed: ${{ needs.changes.outputs.api }}
+          - name: admin
+            context: apps/admin
+            changed: ${{ needs.changes.outputs.admin }}
+          - name: store
+            context: apps/store
+            changed: ${{ needs.changes.outputs.store }}
+          - name: super-admin
+            context: apps/super-admin
+            changed: ${{ needs.changes.outputs.super-admin }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - name: Build ${{ matrix.name }} image
+        if: matrix.changed == 'true'
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ matrix.context }}
+          push: false
+          tags: ecommerce-${{ matrix.name }}:test
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  # ─────────────────────────────────────────────────────────────
+  # All-pass gate — branch protection requires this job
+  # ─────────────────────────────────────────────────────────────
+  all-checks-pass:
+    name: All Checks Passed
+    runs-on: ubuntu-latest
+    needs: [test-api, test-admin, test-store, test-super-admin, security-audit, docker-build-check]
+    if: always()
+    steps:
+      - name: Check all jobs
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') }}" == "true" ]]; then
+            echo "One or more required checks failed."
+            exit 1
+          fi
+          echo "All checks passed or were skipped (no changes in scope)."

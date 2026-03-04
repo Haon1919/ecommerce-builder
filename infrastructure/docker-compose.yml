@@ -1,0 +1,130 @@
+version: '3.9'
+
+# ============================================================
+# Local development stack — mirrors GCP production topology
+# Usage: docker compose up --build
+# ============================================================
+
+services:
+
+  # ── PostgreSQL (mirrors Cloud SQL) ─────────────────────────
+  postgres:
+    image: postgres:15-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: app_user
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-localdevpassword}
+      POSTGRES_DB: ecommerce_builder
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U app_user -d ecommerce_builder"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ── API Service ────────────────────────────────────────────
+  api:
+    build:
+      context: ../services/api
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    ports:
+      - "3001:3001"
+    environment:
+      NODE_ENV: development
+      PORT: 3001
+      DATABASE_URL: postgresql://app_user:${DB_PASSWORD:-localdevpassword}@postgres:5432/ecommerce_builder
+      JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-in-production-min-64-chars-xxxxxxxxxxxxxxxx}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:-00000000000000000000000000000000}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GCP_PROJECT_ID: ${GCP_PROJECT_ID:-local}
+      GCS_BUCKET_NAME: ${GCS_BUCKET_NAME:-}
+      SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@example.com}
+      CORS_ORIGINS: "http://localhost:3002,http://localhost:3003,http://localhost:3004"
+      LOG_LEVEL: debug
+    volumes:
+      # Hot reload in dev — mount source, not build artifacts
+      - ../services/api/src:/app/src:ro
+      - ../services/api/prisma:/app/prisma:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3001/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # ── Admin Panel ────────────────────────────────────────────
+  admin:
+    build:
+      context: ../apps/admin
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3002:3002"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      PORT: 3002
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3002 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ── Store Frontend ─────────────────────────────────────────
+  store:
+    build:
+      context: ../apps/store
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3003:3003"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      PORT: 3003
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3003 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ── Super Admin Panel ──────────────────────────────────────
+  super-admin:
+    build:
+      context: ../apps/super-admin
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "3004:3004"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:3001
+      PORT: 3004
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3004 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+volumes:
+  postgres_data:
+
+networks:
+  default:
+    name: ecommerce-builder-dev

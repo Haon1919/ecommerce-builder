@@ -1,0 +1,24 @@
+{
+  "name": "ecommerce-builder",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "services/*"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=services/api\" \"npm run dev --workspace=apps/admin\" \"npm run dev --workspace=apps/store\" \"npm run dev --workspace=apps/super-admin\"",
+    "build": "npm run build --workspaces",
+    "lint": "npm run lint --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
+    "test:ui": "playwright test",
+    "test:perf:local": "docker run --rm -i -v \"$(pwd)/tests/performance/scenarios:/tests/scenarios\" grafana/k6 run /tests/scenarios/storefront-load.js",
+    "test:security": "./scripts/security-audit.sh",
+    "db:migrate": "npm run db:migrate --workspace=services/api",
+    "db:seed": "npm run db:seed --workspace=services/api"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.58.2",
+    "concurrently": "^8.2.2"
+  }
+}

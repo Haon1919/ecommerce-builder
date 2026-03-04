@@ -1,0 +1,61 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# Build output
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Environment — never commit real secrets
+.env
+.env.local
+.env.*.local
+
+# GCP credentials (NEVER commit these)
+# NOTE: *.json was previously here — too broad, it accidentally hid real JSON files.
+# List only known credential file name patterns instead:
+service-account*.json
+gcp-credentials*.json
+*-key.json
+google-credentials*.json
+
+# Terraform state (use remote state in GCS)
+infrastructure/terraform/.terraform/
+infrastructure/terraform/terraform.tfstate
+infrastructure/terraform/terraform.tfstate.backup
+infrastructure/terraform/.terraform.lock.hcl
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# Testing artifacts — generated outputs, never commit
+coverage/
+.nyc_output/
+playwright-report/
+test-results/
+
+# Prisma compiled seed artifacts (seed runs via ts-node directly, not compiled JS)
+services/api/prisma/seed.js
+services/api/prisma/seed.js.map
+services/api/prisma/seed.d.ts
+services/api/prisma/seed.d.ts.map
+
+# NOTE: services/api/prisma/migrations/ must NOT be ignored.
+# Migrations are committed to source control so `prisma migrate deploy` works in CI/CD.
+
+# Uploads
+uploads/

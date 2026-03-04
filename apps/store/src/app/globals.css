@@ -1,0 +1,26 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Dynamic primary color via CSS variable (set by StoreLayout based on store config) */
+:root {
+  --primary: #6366f1;
+}
+
+.text-primary { color: var(--primary); }
+.bg-primary { background-color: var(--primary); }
+.border-primary { border-color: var(--primary); }
+.ring-primary { --tw-ring-color: var(--primary); }
+.focus\:ring-primary:focus { --tw-ring-color: var(--primary); }
+.hover\:text-primary:hover { color: var(--primary); }
+
+.btn-primary {
+  @apply font-semibold px-6 py-3 rounded-lg transition-all;
+  background-color: var(--primary);
+  color: white;
+}
+.btn-primary:hover { opacity: 0.9; }
+
+.btn-secondary {
+  @apply font-semibold px-6 py-3 rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-all;
+}

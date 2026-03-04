@@ -1,0 +1,501 @@
+// This is your Prisma schema file
+// Learn more: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== MULTI-TENANT STORE ====================
+
+model Store {
+  id           String         @id @default(cuid())
+  slug         String         @unique
+  name         String
+  description  String?
+  logoUrl      String?
+  faviconUrl   String?
+  theme        ThemeFramework @default(TAILWIND)
+  primaryColor String         @default("#6366f1")
+  configured   Boolean        @default(false)
+  gaId         String? // Google Analytics Measurement ID
+  customDomain String?        @unique
+  active       Boolean        @default(true)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  users           User[]
+  pages           Page[]
+  products        Product[]
+  orders          Order[]
+  messages        ContactMessage[]
+  tickets         SupportTicket[]
+  chatSessions    ChatSession[]
+  settings        StoreSettings?
+  metricSnapshots MetricSnapshot[]
+  logs            AppLog[]
+  companies       Company[]
+  priceLists      PriceList[]
+  experiments     Experiment[]
+
+  @@index([slug])
+}
+
+enum ThemeFramework {
+  TAILWIND
+  BOOTSTRAP
+  BULMA
+  PICO
+}
+
+model StoreSettings {
+  id                String  @id @default(cuid())
+  storeId           String  @unique
+  store             Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  stripePublicKey   String?
+  stripeSecretKey   String? // AES-256 encrypted
+  geminiApiKeyEnc   String? // AES-256 encrypted - store-specific override
+  contactEmail      String?
+  shippingPolicy    String?
+  returnPolicy      String?
+  privacyPolicy     String?
+  aboutText         String?
+  metaTitle         String?
+  metaDescription   String?
+  currency          String  @default("USD")
+  taxRate           Float   @default(0)
+  freeShippingAbove Float?
+  flatShippingRate  Float   @default(0)
+  gaId              String?
+}
+
+// ==================== USERS & AUTH ====================
+
+model User {
+  id          String    @id @default(cuid())
+  email       String
+  password    String // bcrypt hashed
+  name        String
+  avatarUrl   String?
+  role        UserRole  @default(ADMIN)
+  storeId     String
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  companyId   String?
+  company     Company?  @relation(fields: [companyId], references: [id])
+  active      Boolean   @default(true)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  replies        MessageReply[]
+  ticketComments TicketComment[]
+  refreshTokens  RefreshToken[]
+
+  @@unique([email, storeId])
+  @@index([storeId])
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  VIEWER
+}
+
+model SuperAdmin {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String // bcrypt hashed
+  name          String
+  active        Boolean        @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime       @default(now())
+  refreshTokens RefreshToken[]
+}
+
+model RefreshToken {
+  id           String      @id @default(cuid())
+  token        String      @unique
+  userId       String?
+  user         User?       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  superAdminId String?
+  superAdmin   SuperAdmin? @relation(fields: [superAdminId], references: [id], onDelete: Cascade)
+  expiresAt    DateTime
+  createdAt    DateTime    @default(now())
+}
+
+// ==================== PAGES & BUILDER ====================
+
+model Page {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  type      PageType @default(CUSTOM)
+  slug      String
+  title     String
+  layout    Json     @default("[]") // Array of PageComponent JSON
+  seoTitle  String?
+  seoDesc   String?
+  published Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([storeId, slug])
+  @@index([storeId])
+}
+
+enum PageType {
+  LANDING
+  PRODUCTS
+  PRODUCT_DETAIL
+  CART
+  CHECKOUT
+  CONFIRMATION
+  CONTACT
+  ABOUT
+  CUSTOM
+}
+
+// ==================== PRODUCTS & INVENTORY ====================
+
+model Product {
+  id           String   @id @default(cuid())
+  storeId      String
+  store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  sku          String?
+  name         String
+  description  String?
+  price        Decimal  @db.Decimal(10, 2)
+  comparePrice Decimal? @db.Decimal(10, 2)
+  stock        Int      @default(0)
+  trackStock   Boolean  @default(true)
+  category     String?
+  tags         String[]
+  images       String[] // GCS URLs
+  variants     Json? // [{name: "Size", options: ["S","M","L"]}]
+  modelUrl     String? // 3D model GLTF/USDZ URL
+  arEnabled    Boolean  @default(false)
+  weight       Float?
+  active       Boolean  @default(true)
+  featured     Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  orderItems OrderItem[]
+
+  @@index([storeId])
+  @@index([storeId, category])
+  @@index([storeId, active])
+}
+
+// ==================== ORDERS (Customer PII is encrypted) ====================
+
+model Order {
+  id               String      @id @default(cuid())
+  storeId          String
+  store            Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  orderNumber      String      @unique // Human-readable: ORD-2024-0001
+  status           OrderStatus @default(PENDING)
+  // PII encrypted with AES-256 - key per store
+  customerEmailEnc String // encrypted
+  customerNameEnc  String // encrypted
+  customerPhoneEnc String? // encrypted
+  shippingAddrEnc  String // encrypted JSON
+  // Non-PII financial data
+  subtotal         Decimal     @db.Decimal(10, 2)
+  tax              Decimal     @default(0) @db.Decimal(10, 2)
+  shipping         Decimal     @default(0) @db.Decimal(10, 2)
+  total            Decimal     @db.Decimal(10, 2)
+  currency         String      @default("USD")
+  stripePaymentId  String?
+  stripeSessionId  String?
+  companyId        String?
+  company          Company?    @relation(fields: [companyId], references: [id])
+  paymentTerms     String? // e.g. "Net-30"
+  notes            String?
+  trackingNumber   String?
+  shippedAt        DateTime?
+  deliveredAt      DateTime?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  items OrderItem[]
+
+  @@index([storeId])
+  @@index([storeId, status])
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  productId   String
+  product     Product @relation(fields: [productId], references: [id])
+  productName String // Snapshot at time of purchase
+  quantity    Int
+  price       Decimal @db.Decimal(10, 2)
+  variantInfo Json? // Snapshot of variant selection
+}
+
+// ==================== MESSAGES ====================
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  // PII encrypted
+  nameEnc   String
+  emailEnc  String
+  subject   String
+  message   String
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  replies MessageReply[]
+
+  @@index([storeId])
+  @@index([storeId, read])
+}
+
+model MessageReply {
+  id        String         @id @default(cuid())
+  messageId String
+  message   ContactMessage @relation(fields: [messageId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id])
+  body      String
+  sentAt    DateTime       @default(now())
+}
+
+// ==================== SUPPORT TICKETS ====================
+
+model SupportTicket {
+  id           String         @id @default(cuid())
+  storeId      String
+  store        Store          @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  ticketNumber String         @unique // TKT-0001
+  title        String
+  description  String
+  status       TicketStatus   @default(OPEN)
+  priority     TicketPriority @default(MEDIUM)
+  category     String?
+  kanbanOrder  Int            @default(0)
+  resolvedAt   DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  comments TicketComment[]
+
+  @@index([storeId])
+  @@index([status])
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_FOR_INFO
+  RESOLVED
+  CLOSED
+}
+
+enum TicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+model TicketComment {
+  id        String        @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  userId    String? // null = super admin
+  user      User?         @relation(fields: [userId], references: [id])
+  body      String
+  internal  Boolean       @default(false) // true = only visible to super admin
+  createdAt DateTime      @default(now())
+}
+
+// ==================== AI CHAT ====================
+
+model ChatSession {
+  id        String   @id @default(cuid())
+  storeId   String
+  store     Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  visitorId String // Anonymous or customer ID
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  messages ChatMessage[]
+
+  @@index([storeId])
+}
+
+model ChatMessage {
+  id            String      @id @default(cuid())
+  sessionId     String
+  session       ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role          ChatRole
+  content       String
+  actionType    String? // e.g., "PRODUCT_RECOMMENDATION", "ADD_TO_CART"
+  actionPayload Json?
+  createdAt     DateTime    @default(now())
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+  SYSTEM
+}
+
+// ==================== MONITORING & ANOMALY DETECTION ====================
+
+model MetricSnapshot {
+  id        String   @id @default(cuid())
+  storeId   String? // null = global platform metric
+  store     Store?   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  metric    String // e.g., "error_rate", "response_time_p99", "order_count"
+  value     Float
+  tags      Json? // Additional labels
+  timestamp DateTime @default(now())
+
+  @@index([storeId, metric, timestamp])
+  @@index([metric, timestamp])
+}
+
+model AlertRule {
+  id            String    @id @default(cuid())
+  metric        String
+  threshold     Float // KL divergence threshold
+  windowMinutes Int       @default(5)
+  baselineHours Int       @default(168) // 7 days
+  enabled       Boolean   @default(true)
+  notifyEmail   String?
+  lastFiredAt   DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+model Alert {
+  id           String        @id @default(cuid())
+  ruleId       String?
+  metric       String
+  storeId      String?
+  severity     AlertSeverity @default(WARNING)
+  message      String
+  klDivergence Float?
+  acknowledged Boolean       @default(false)
+  createdAt    DateTime      @default(now())
+
+  @@index([acknowledged, createdAt])
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+// ==================== LOGGING ====================
+
+model AppLog {
+  id        String   @id @default(cuid())
+  storeId   String?
+  store     Store?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  level     LogLevel
+  service   String // "api", "admin", "store"
+  message   String
+  meta      Json? // Non-PII metadata
+  traceId   String?
+  timestamp DateTime @default(now())
+
+  @@index([storeId, timestamp])
+  @@index([level, timestamp])
+  @@index([service, timestamp])
+}
+
+enum LogLevel {
+  DEBUG
+  INFO
+  WARN
+  ERROR
+  CRITICAL
+}
+
+// ==================== B2B & WHOLESALE ====================
+
+model Company {
+  id          String     @id @default(cuid())
+  storeId     String
+  store       Store      @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name        String
+  taxId       String?
+  creditLimit Decimal?   @db.Decimal(10, 2)
+  users       User[]
+  orders      Order[]
+  priceListId String?
+  priceList   PriceList? @relation(fields: [priceListId], references: [id])
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([storeId])
+}
+
+model PriceList {
+  id          String    @id @default(cuid())
+  storeId     String
+  store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  prices      Json      @default("{}") // productId -> overriddenPrice mapping
+  companies   Company[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([storeId])
+}
+
+// ==================== A/B TESTING ====================
+
+model Experiment {
+  id        String           @id @default(cuid())
+  storeId   String
+  store     Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name      String
+  status    ExperimentStatus @default(DRAFT)
+  variants  Variant[]
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+
+  @@index([storeId])
+}
+
+enum ExperimentStatus {
+  DRAFT
+  RUNNING
+  PAUSED
+  COMPLETED
+}
+
+model Variant {
+  id           String     @id @default(cuid())
+  experimentId String
+  experiment   Experiment @relation(fields: [experimentId], references: [id], onDelete: Cascade)
+  name         String
+  weight       Int        @default(50) // Traffic percentage
+  layout       Json // Overrides page layout
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+}

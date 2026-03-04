@@ -1,0 +1,522 @@
+# Developer Guide
+
+This guide covers everything you need to get the project running locally, understand the architecture, and work on it effectively.
+
+---
+
+## Table of Contents
+
+1. [Prerequisites](#1-prerequisites)
+2. [Repo Structure](#2-repo-structure)
+3. [Local Setup](#3-local-setup)
+4. [Running the Stack](#4-running-the-stack)
+5. [Architecture Overview](#5-architecture-overview)
+6. [Database & Prisma](#6-database--prisma)
+7. [API Routes Reference](#7-api-routes-reference)
+8. [Authentication & Multi-tenancy](#8-authentication--multi-tenancy)
+9. [PII Encryption](#9-pii-encryption)
+10. [Anomaly Detection Service](#10-anomaly-detection-service)
+11. [Gemini AI Integration](#11-gemini-ai-integration)
+12. [Drag-Drop Page Builder](#12-drag-drop-page-builder)
+13. [Adding a New Feature](#13-adding-a-new-feature)
+14. [Testing](#14-testing)
+15. [Common Pitfalls](#15-common-pitfalls)
+
+---
+
+## 1. Prerequisites
+
+- **Node.js** 20+ (`node --version`)
+- **npm** 10+ (comes with Node 20)
+- **Docker Desktop** (for the local Postgres container)
+- **git**
+
+Optional but useful:
+- **gcloud CLI** — only needed if you're working on GCP-specific features
+- **Terraform** 1.6+ — only for infrastructure changes
+
+---
+
+## 2. Repo Structure
+
+```
+ecommerce-builder/
+├── apps/
+│   ├── admin/          Next.js 14 — store admin panel (port 3002)
+│   ├── store/          Next.js 14 — customer storefront (port 3003)
+│   └── super-admin/    Next.js 14 — platform ops panel (port 3004)
+├── services/
+│   └── api/            Express + Socket.IO — backend API (port 3001)
+│       ├── prisma/     Database schema and seed
+│       └── src/
+│           ├── config.ts
+│           ├── db.ts
+│           ├── index.ts        Express server entry point
+│           ├── middleware/     auth.ts, security.ts
+│           ├── routes/         One file per resource
+│           └── services/       encryption.ts, anomaly.ts, gemini.ts
+├── infrastructure/
+│   ├── docker-compose.yml      Local dev stack
+│   ├── scripts/                GCP bootstrap scripts
+│   └── terraform/              GCP infrastructure as code
+├── .github/workflows/          CI/CD pipelines
+├── .env.example
+└── package.json                Monorepo root (npm workspaces)
+```
+
+This is an **npm workspaces monorepo**. The root `package.json` declares `apps/*` and `services/*` as workspaces. You can run scripts across all packages from the root.
+
+---
+
+## 3. Local Setup
+
+### 3a. Clone and install
+
+```bash
+git clone <repo-url> ecommerce-builder
+cd ecommerce-builder
+
+# Install all workspace dependencies from the root
+npm install
+```
+
+### 3b. Environment variables
+
+```bash
+cp .env.example services/api/.env
+```
+
+Open `services/api/.env` and fill in the minimum required values for local dev:
+
+```env
+DATABASE_URL="postgresql://app_user:localdevpassword@localhost:5432/ecommerce_builder"
+JWT_SECRET="<generate: openssl rand -base64 48>"
+ENCRYPTION_KEY="<generate: openssl rand -hex 16>"      # exactly 32 hex chars
+ENCRYPTION_IV_SECRET="<generate: openssl rand -hex 8>" # exactly 16 hex chars
+GEMINI_API_KEY=""                                       # leave blank to skip AI features
+SUPER_ADMIN_EMAIL="admin@example.com"
+SUPER_ADMIN_PASSWORD="<choose a strong password>"
+DEMO_STORE_ADMIN_EMAIL="store@example.com"
+DEMO_STORE_ADMIN_PASSWORD="<choose a strong password>"
+NODE_ENV="development"
+LOG_LEVEL="debug"
+```
+
+> **`ENCRYPTION_KEY`** must be **exactly 32 characters**. Generate a safe one — never use a placeholder:
+> ```bash
+> openssl rand -hex 16
+> ```
+> The seed script reads `SUPER_ADMIN_PASSWORD` and `DEMO_STORE_ADMIN_PASSWORD` from env. It will exit with an error if either is missing — there are no hardcoded fallback credentials.
+
+The three frontend apps only need one env var each. Create these files:
+
+```bash
+# apps/admin/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:3001
+
+# apps/store/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:3001
+
+# apps/super-admin/.env.local
+NEXT_PUBLIC_API_URL=http://localhost:3001
+```
+
+### 3c. Start the database
+
+```bash
+# From the repo root
+docker compose -f infrastructure/docker-compose.yml up postgres -d
+```
+
+This starts a PostgreSQL 15 container on port 5432 with the credentials matching your `.env`.
+
+### 3d. Run migrations and seed
+
+```bash
+npm run db:migrate     # runs prisma migrate deploy
+npm run db:seed        # creates super admin + demo store with products
+```
+
+After seeding you'll have:
+- **Super admin:** email/password from `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD`
+- **Demo store:** slug `demo-store`, admin from `DEMO_STORE_ADMIN_EMAIL` / `DEMO_STORE_ADMIN_PASSWORD`
+- 6 demo products in the demo store
+
+---
+
+## 4. Running the Stack
+
+### Option A — All services at once (recommended)
+
+```bash
+npm run dev
+```
+
+This uses `concurrently` to start all four services simultaneously. Output from each service is prefixed with its name.
+
+### Option B — Individual services
+
+```bash
+# API (required first — others depend on it)
+npm run dev --workspace=services/api
+
+# In separate terminals:
+npm run dev --workspace=apps/admin
+npm run dev --workspace=apps/store
+npm run dev --workspace=apps/super-admin
+```
+
+### Option C — Full Docker stack
+
+```bash
+docker compose -f infrastructure/docker-compose.yml up --build
+```
+
+This mirrors production topology but is slower to iterate on since it rebuilds images.
+
+### Service URLs
+
+| Service | URL |
+|---|---|
+| API | http://localhost:3001 |
+| API health | http://localhost:3001/health |
+| Admin panel | http://localhost:3002 |
+| Storefront | http://localhost:3003 |
+| Super admin | http://localhost:3004 |
+
+The demo store is accessible at `http://localhost:3003/demo-store`.
+
+---
+
+## 5. Architecture Overview
+
+```
+Browser
+  │
+  ├── apps/admin       → /api/*  (authenticated, store-scoped JWT)
+  ├── apps/store       → /api/*  (public endpoints + store slug routing)
+  └── apps/super-admin → /api/*  (SUPER_ADMIN JWT, PII auto-scrubbed)
+                              │
+                       services/api  (Express + Socket.IO)
+                              │
+                    ┌─────────┼──────────┐
+                 Prisma    Socket.IO   Gemini API
+                    │       (live logs)
+              PostgreSQL
+```
+
+**Key design decisions:**
+
+- The API is the **only** service that touches the database. All frontends are thin clients.
+- Multi-tenancy is enforced at the **JWT level** — every store admin token embeds a `storeId`, and `requireStoreAdmin` middleware rejects requests where the URL's `storeId` doesn't match the token.
+- Super admin tokens have `type: 'SUPER_ADMIN'` and no `storeId`. A separate middleware (`scrubPIIForSuperAdmin`) intercepts their responses and redacts encrypted field values.
+- All four services are stateless — they can be scaled horizontally without coordination.
+
+---
+
+## 6. Database & Prisma
+
+The schema lives at `services/api/prisma/schema.prisma`.
+
+### Useful Prisma commands
+
+```bash
+# Run from services/api, or use the root shortcut:
+npm run db:migrate         # Apply pending migrations (production-safe)
+
+# Dev-only commands (run from services/api):
+cd services/api
+npx prisma migrate dev     # Create a new migration from schema changes
+npx prisma studio          # Open browser-based DB GUI at localhost:5555
+npx prisma generate        # Regenerate the Prisma client (run after schema changes)
+npx prisma migrate reset   # WIPE and re-run all migrations + seed (dev only)
+```
+
+### Schema highlights
+
+- **`Store`** — the tenant root. Every other model has a `storeId` foreign key.
+- **`Company` & `PriceList`** — For B2B wholesale. Companies are assigned to `Store`s and can have special `PriceList`s overriding standard `Product` prices.
+- **`User`** — store admins. Unique on `(email, storeId)` so the same email can admin multiple stores. Can optionally belong to a `CompanyId` for B2B portal login.
+- **`SuperAdmin`** — completely separate table from `User`. No `storeId`.
+- **`Product`** — tracks standard catalog. Fields `arEnabled` and `modelUrl` support Native AR & 3D Generative AI previews on the storefront.
+- **`Experiment` & `Variant`** — Powers A/B testing on the storefront. Layouts on variants can replace normal pages and split traffic.
+- **`Order`** — customer PII fields are named with `Enc` suffix (`customerEmailEnc`, `customerNameEnc`, `shippingAddrEnc`). Always read/write through the encryption service, never directly.
+- **`Page`** — the `layout` column is a `Json` array of `PageComponent` objects. This is what the drag-drop editor saves and the store's `PageRenderer` component reads.
+- **`MetricSnapshot`** — append-only time series for anomaly detection. `storeId` is nullable — null means platform-wide metric.
+- **`AppLog`** — structured log entries written by the API. Displayed in the super admin Live Log Viewer. PII is never written here.
+
+### Making a schema change
+
+1. Edit `services/api/prisma/schema.prisma`
+2. `cd services/api && npx prisma migrate dev --name describe_your_change`
+3. Commit both the schema file and the generated migration file in `prisma/migrations/`
+4. The CI/CD pipeline runs `prisma migrate deploy` before deploying the new API image
+
+---
+
+## 7. API Routes Reference
+
+All routes are prefixed `/api`. Auth routes rate-limited to 20 requests / 15 min. All others 100 / min.
+
+| Method | Path | Auth | Description |
+|---|---|---|---|
+| `POST` | `/auth/login` | Public | Login for store admins and super admins |
+| `POST` | `/auth/register` | Public | Register a new store admin + create store |
+| `GET` | `/auth/me` | User | Get current user profile |
+| `GET` | `/stores` | SuperAdmin | List all stores (tenants) |
+| `GET` | `/stores/:storeId` | StoreAdmin | Get store details |
+| `PATCH` | `/stores/:storeId` | StoreAdmin | Update store settings |
+| `GET` | `/stores/:storeId/pages` | StoreAdmin | List pages |
+| `POST` | `/stores/:storeId/pages` | StoreAdmin | Create a page |
+| `PUT` | `/stores/:storeId/pages/:pageId` | StoreAdmin | Save page layout (drag-drop output) |
+| `POST` | `/stores/:storeId/pages/:pageId/publish` | StoreAdmin | Publish a page draft |
+| `GET` | `/stores/:storeId/products` | Public | List products (store's catalog) |
+| `POST` | `/stores/:storeId/products` | StoreAdmin | Create product |
+| `PUT` | `/stores/:storeId/products/:id` | StoreAdmin | Update product |
+| `DELETE` | `/stores/:storeId/products/:id` | StoreAdmin | Delete product |
+| `POST` | `/stores/:storeId/orders` | Public | Create order (checkout) |
+| `GET` | `/stores/:storeId/orders` | StoreAdmin | List orders (PII decrypted for store admin) |
+| `PATCH` | `/stores/:storeId/orders/:id` | StoreAdmin | Update order status |
+| `GET` | `/stores/:storeId/messages` | StoreAdmin | List contact messages |
+| `POST` | `/stores/:storeId/messages/:id/reply` | StoreAdmin | Reply to a message |
+| `GET` | `/stores/:storeId/tickets` | StoreAdmin | List store's support tickets |
+| `POST` | `/stores/:storeId/tickets` | StoreAdmin | File a support ticket |
+| `GET` | `/tickets` | SuperAdmin | All tickets across all stores (Kanban) |
+| `PATCH` | `/tickets/:id/status` | SuperAdmin | Move ticket between Kanban columns |
+| `POST` | `/tickets/:id/comments` | Admin\|SuperAdmin | Add comment |
+| `POST` | `/stores/:storeId/chat` | Public | Send chat message/voice to Gemini |
+| `GET` | `/stores/:storeId/companies` | StoreAdmin | List B2B companies |
+| `POST` | `/stores/:storeId/companies` | StoreAdmin | Create B2B company |
+| `GET` | `/stores/:storeId/pricelists` | StoreAdmin | List price lists |
+| `POST` | `/stores/:storeId/pricelists` | StoreAdmin | Create a price list |
+| `GET` | `/stores/:storeId/experiments` | StoreAdmin | List A/B tests |
+| `POST` | `/stores/:storeId/experiments` | StoreAdmin | Create A/B test |
+| `GET` | `/analytics` | SuperAdmin | Platform-level overview stats |
+| `GET` | `/analytics/metrics` | SuperAdmin | Time-series data for monitoring charts |
+| `GET` | `/analytics/alerts` | SuperAdmin | KL divergence alert history |
+| `POST` | `/analytics/alerts/:id/acknowledge` | SuperAdmin | Acknowledge an alert |
+| `GET` | `/logs` | SuperAdmin | Paginated log history |
+
+### Health check
+
+`GET /health` — no auth required, returns `{ status: "ok", timestamp, version }`.
+
+---
+
+## 8. Authentication & Multi-tenancy
+
+JWT tokens are issued by `POST /api/auth/login`. The payload shape differs by role:
+
+```typescript
+// Store admin
+{ type: 'USER', userId: string, storeId: string, role: 'OWNER' | 'ADMIN' | 'VIEWER' }
+
+// Super admin
+{ type: 'SUPER_ADMIN', adminId: string }
+```
+
+**Middleware chain for a typical store admin request:**
+
+1. `requireAuth` — verifies the JWT, attaches the decoded payload to `req.user`
+2. `requireStoreAdmin` — checks `req.params.storeId === req.user.storeId`. Returns 403 if they don't match. This prevents store A's admin from accessing store B's data even with a valid token.
+
+**Adding a new protected route:**
+
+```typescript
+// For store admins only
+router.get('/:storeId/widgets', requireAuth, requireStoreAdmin, async (req, res) => { ... });
+
+// For super admin only
+router.get('/platform/widgets', requireAuth, requireSuperAdmin, async (req, res) => { ... });
+
+// For either, as long as they have access to the store
+router.get('/:storeId/widgets', requireAuth, requireAdminOrSuperAdmin, async (req, res) => { ... });
+```
+
+---
+
+## 9. PII Encryption
+
+Customer PII is encrypted before being written to the database and decrypted on the way out — but **only for store admins**. Super admins always see `[REDACTED]`.
+
+The encryption service is at `services/api/src/services/encryption.ts`:
+
+```typescript
+import { encrypt, decrypt } from '../services/encryption';
+
+// Writing an order
+const customerEmailEnc = encrypt(form.email);   // returns "iv:ciphertext" hex
+
+// Reading back for a store admin
+const email = decrypt(order.customerEmailEnc);
+```
+
+**Rules to follow:**
+
+- Never write raw PII to any `AppLog` entry. The log middleware already scrubs known field names, but if you're writing custom logs, use `anonymizeEmail()` from the encryption service instead.
+- Never add a new PII field to a model without the `Enc` suffix so the `scrubPIIForSuperAdmin` middleware knows to redact it.
+- The `ENCRYPTION_KEY` environment variable must be exactly 32 characters. Using the wrong length silently produces garbage ciphertext.
+
+---
+
+## 10. Anomaly Detection Service
+
+`services/api/src/services/anomaly.ts`
+
+Runs on a `setInterval` every `METRIC_SNAPSHOT_INTERVAL_MS` (default: 60 seconds). Each cycle:
+
+1. Calls `recordMetric()` to snapshot current values into `MetricSnapshot`
+2. Calls `runAnomalyChecks()` which runs `detectAnomaly()` for each metric
+3. `detectAnomaly()` fetches the current 5-minute window and the 7-day baseline, converts both to probability distributions via histogram bucketing, then computes `KL(current || baseline)`
+4. If KL exceeds `KL_DIVERGENCE_THRESHOLD` (default 0.5), an `Alert` record is created
+
+**Adding a new metric to monitor:**
+
+1. Call `recordMetric('your_metric_name', value)` wherever the metric is generated (e.g., in a route handler or middleware)
+2. Add `'your_metric_name'` to the `metrics` array in `runAnomalyChecks()`
+3. Add it to the `METRICS` array in `apps/super-admin/src/app/(dashboard)/monitoring/page.tsx` to chart it
+
+**Note on cold start:** `detectAnomaly()` returns `isAnomaly: false` and skips alert creation when either the current window or the baseline has fewer than 3 data points. A freshly deployed instance will not fire false alerts for the first few minutes.
+
+---
+
+## 11. Gemini AI Integration
+
+`services/api/src/services/gemini.ts`
+
+The chat widget in the store frontend calls `POST /api/stores/:storeId/chat` which handles both text and **Omnichannel Voice Commerce** via transcription data leveraging browser Web Speech API. The API:
+
+1. Calls `buildSystemPrompt(storeId)` — queries the store's name, description, settings, and up to 50 products, then formats them into a system prompt that gives Gemini full store context
+2. Calls `processChat()` with the conversation history and the new message
+3. Parses **action blocks** from the response — Gemini is prompted to emit JSON wrapped in triple-backtick `action` blocks when it wants to do something beyond just talking:
+
+```
+```action
+{ "type": "SHOW_PRODUCTS", "payload": { "productIds": ["id1", "id2"] } }
+```
+```
+
+4. The action block is stripped from the displayed text. The action type and payload are returned to the frontend separately, which then handles them (e.g., renders product cards inline, adds items to the cart).
+
+**Supported action types:** `SHOW_PRODUCTS`, `ADD_TO_CART`, `GO_TO_PAGE`, `SHOW_CATEGORY`
+
+**Store-specific API key:** Stores can configure their own Gemini API key in `StoreSettings.geminiApiKeyEnc`. If set, it overrides the platform-level `GEMINI_API_KEY`. This is encrypted with AES-256 in the database.
+
+**If `GEMINI_API_KEY` is empty**, the chat endpoint returns an error. You can still develop and test all other features locally without a Gemini key.
+
+---
+
+## 12. Drag-Drop Page Builder
+
+The builder lives across three components in `apps/admin/src/components/editor/`:
+
+| File | Responsibility |
+|---|---|
+| `DragDropEditor.tsx` | Orchestrates everything. Owns state, undo/redo, viewport toggle, save/publish |
+| `ComponentPalette.tsx` | Left sidebar. Each item is `useDraggable`. Dragging from here creates a new component |
+| `Canvas.tsx` | Drop target. Uses `SortableContext` for reordering existing components |
+| `PropertyPanel.tsx` | Right sidebar. Renders editable fields for the selected component |
+
+**The page layout data format** (stored in `Page.layout` as JSON):
+
+```typescript
+interface PageComponent {
+  id: string;           // UUID
+  type: string;         // e.g., "HeroSection", "ProductGrid", "Button"
+  props: Record<string, unknown>;  // Component-specific properties
+}
+```
+
+**Adding a new component type:**
+
+1. Add it to `PALETTE_ITEMS` in `ComponentPalette.tsx` with its default props
+2. Add its editable fields to `COMPONENT_FIELDS` in `PropertyPanel.tsx`
+3. Add a visual preview in the `ComponentPreview` switch in `Canvas.tsx`
+4. Add a renderer in `PageRenderer.tsx` in `apps/store` so it renders on the live storefront
+
+**A/B Testing Integration:**
+
+When standard Pages are loaded on the storefront, it checks for active `Experiment`s and `Variant`s. If an A/B test is running, traffic is probabilistically routed according to the `weight` property of the `Variant`. The variant's layout completely replaces the standard page layout.
+
+**How a drag-from-palette drop works:**
+
+The `DragDropEditor` `onDragEnd` handler checks `active.data.current?.fromPalette`. If true, it inserts a new component object at the index of whatever component was hovered (`over`). If false, it's a canvas reorder and uses `arrayMove` from `@dnd-kit/sortable`.
+
+---
+
+## 13. Adding a New Feature
+
+Here's the full path for a typical new feature — example: adding a "discount codes" feature.
+
+**1. Database (schema)**
+```bash
+# Edit services/api/prisma/schema.prisma
+# Add a DiscountCode model with storeId, code, percent, etc.
+cd services/api && npx prisma migrate dev --name add_discount_codes
+```
+
+**2. API route**
+Create `services/api/src/routes/discounts.ts`:
+```typescript
+import { Router } from 'express';
+import { requireAuth, requireStoreAdmin } from '../middleware/auth';
+
+const router = Router({ mergeParams: true });
+
+router.get('/:storeId/discounts', requireAuth, requireStoreAdmin, async (req, res) => {
+  // ...
+});
+
+export default router;
+```
+
+Register it in `services/api/src/index.ts`:
+```typescript
+import discountsRouter from './routes/discounts';
+app.use('/api/stores', discountsRouter);
+```
+
+**3. Admin panel**
+Add the API call to `apps/admin/src/lib/api.ts`, then create a page at `apps/admin/src/app/(dashboard)/discounts/page.tsx` and add it to the `Sidebar.tsx` nav.
+
+**4. Store frontend (if customer-facing)**
+Add to `apps/store/src/lib/api.ts` and use in the checkout flow.
+
+---
+
+## 14. Testing
+
+```bash
+# Run all tests
+npm test
+
+# Run API tests only
+npm test --workspace=services/api
+
+# TypeScript type check all packages
+npm run build --workspaces --if-present
+```
+
+The test suite is minimal by default — the project prioritizes type safety (strict TypeScript) over unit tests. The CI pipeline (`test.yml`) runs `tsc --noEmit` across all packages and does a full `npm run build` to catch compile errors before anything merges.
+
+When writing new code:
+- Keep business logic in `services/` functions (not inline in route handlers) so it can be unit tested independently
+- The encryption, anomaly detection, and Gemini services are good examples of this pattern
+
+---
+
+## 15. Common Pitfalls
+
+**`ENCRYPTION_KEY must be 32 chars`** — If you see a crypto error on startup or get garbled data back from encrypted fields, check the length of your key. `echo -n "$ENCRYPTION_KEY" | wc -c` should print `32`.
+
+**`Prisma client not generated`** — If you get `Cannot find module '@prisma/client'` after pulling new changes, run `npm run db:migrate` which also regenerates the client. Or explicitly: `cd services/api && npx prisma generate`.
+
+**`CORS error in browser`** — The API's allowed origins come from the `ALLOWED_ORIGINS` / `CORS_ORIGINS` env var. For local dev, make sure it includes all three frontend ports: `http://localhost:3002,http://localhost:3003,http://localhost:3004`.
+
+**`Socket.IO not connecting`** — The live log viewer authenticates the socket with the super admin JWT stored in `localStorage`. If you're testing locally and the connection keeps dropping, check that the token is present and not expired. Tokens expire after 7 days by default.
+
+**`storeId mismatch 403`** — If you're testing admin panel routes and getting 403s, the JWT you're using may have been issued for a different store than the one in the URL. Log out and log back in to the correct store.
+
+**`Page builder saves but store shows old content`** — Saving via the editor writes a draft. The storefront only renders **published** pages. Hit "Publish" in the editor toolbar.
+
+**Changing the schema without a migration** — Prisma reads the generated client, not the schema file at runtime. If you edit `schema.prisma` but don't run `migrate dev`, nothing changes in the database and queries will fail silently. Always follow a schema edit with a migration.

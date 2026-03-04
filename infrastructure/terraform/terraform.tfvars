@@ -1,0 +1,6 @@
+project_id        = "dry-run-project-123"
+db_password       = "placeholder-password"
+jwt_secret        = "placeholder-jwt-secret-placeholder-jwt-secret-placeholder-jwt-secret"
+encryption_key    = "12345678901234567890123456789012"
+gemini_api_key    = "placeholder-gemini-key"
+super_admin_email = "admin@example.com"

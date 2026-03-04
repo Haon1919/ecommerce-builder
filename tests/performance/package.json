@@ -1,0 +1,13 @@
+{
+    "name": "ecommerce-performance-tests",
+    "version": "1.0.0",
+    "description": "k6 performance testing suite for Ecommerce Builder",
+    "private": true,
+    "scripts": {
+        "test:storefront": "k6 run scenarios/storefront-load.js",
+        "test:api": "k6 run scenarios/api-checkout-load.js"
+    },
+    "devDependencies": {
+        "@types/k6": "~0.45.0"
+    }
+}
