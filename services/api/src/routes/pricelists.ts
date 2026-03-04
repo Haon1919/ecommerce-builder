@@ -16,7 +16,7 @@ const priceListSchema = z.object({
 router.get('/:storeId/pricelists', requireStoreAdmin, async (req: Request, res: Response) => {
     try {
         const lists = await prisma.priceList.findMany({
-            where: { storeId: req.params.storeId },
+            where: { storeId: req.params.storeId as string },
             orderBy: { name: 'asc' },
         });
         res.json(lists);
@@ -29,7 +29,7 @@ router.get('/:storeId/pricelists', requireStoreAdmin, async (req: Request, res: 
 router.get('/:storeId/pricelists/:id', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
         const list = await prisma.priceList.findFirst({
-            where: { id: req.params.id, storeId: req.params.storeId },
+            where: { id: req.params.id as string, storeId: req.params.storeId as string },
         });
         if (!list) {
             res.status(404).json({ error: 'PriceList not found' });
@@ -53,7 +53,7 @@ router.post('/:storeId/pricelists', requireStoreAdmin, async (req: Request, res:
         const list = await prisma.priceList.create({
             data: {
                 ...parsed.data,
-                storeId: req.params.storeId,
+                storeId: req.params.storeId as string,
                 prices: parsed.data.prices ?? {},
             },
         });
@@ -74,7 +74,7 @@ router.put('/:storeId/pricelists/:id', requireStoreAdmin, async (req: Request, r
 
     try {
         const existing = await prisma.priceList.findFirst({
-            where: { id: req.params.id, storeId: req.params.storeId }
+            where: { id: req.params.id as string, storeId: req.params.storeId as string }
         });
         if (!existing) {
             res.status(404).json({ error: 'PriceList not found' });
@@ -82,7 +82,7 @@ router.put('/:storeId/pricelists/:id', requireStoreAdmin, async (req: Request, r
         }
 
         const list = await prisma.priceList.update({
-            where: { id: req.params.id },
+            where: { id: req.params.id as string },
             data: parsed.data,
         });
         res.json(list);
@@ -95,14 +95,14 @@ router.put('/:storeId/pricelists/:id', requireStoreAdmin, async (req: Request, r
 router.delete('/:storeId/pricelists/:id', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
         const existing = await prisma.priceList.findFirst({
-            where: { id: req.params.id, storeId: req.params.storeId }
+            where: { id: req.params.id as string, storeId: req.params.storeId as string }
         });
         if (!existing) {
             res.status(404).json({ error: 'PriceList not found' });
             return;
         }
 
-        await prisma.priceList.delete({ where: { id: req.params.id } });
+        await prisma.priceList.delete({ where: { id: req.params.id as string } });
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: 'Internal server error' });

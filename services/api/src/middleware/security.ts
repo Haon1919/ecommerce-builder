@@ -42,7 +42,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
           },
         },
       })
-      .catch((err) => logger.error('Failed to write request log', { error: err }));
+      .catch((err: any) => logger.error('Failed to write request log', { error: err }));
 
     // Also record error rate metric
     if (res.statusCode >= 500) {
@@ -50,7 +50,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
         .create({
           data: { metric: 'error_rate', value: 1, storeId, tags: { path: req.path } },
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   });
 
@@ -78,7 +78,7 @@ export function responseTime(req: Request, res: Response, next: NextFunction): v
             storeId: req.user?.storeId ?? null,
           },
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   });
   next();

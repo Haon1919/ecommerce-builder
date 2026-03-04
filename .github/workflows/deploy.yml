@@ -58,6 +58,7 @@ jobs:
     name: Setup GCP Auth
     runs-on: ubuntu-latest
     needs: changes
+    if: env.PROJECT_ID != ''
     permissions:
       contents: read
       id-token: write

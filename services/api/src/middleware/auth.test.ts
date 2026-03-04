@@ -11,6 +11,13 @@ import {
 
 // Mock dependencies
 jest.mock('jsonwebtoken');
+jest.mock('../db', () => ({
+  prisma: {
+    appLog: {
+      create: jest.fn().mockResolvedValue({})
+    }
+  }
+}));
 jest.mock('../config', () => ({
   config: {
     jwt: {

@@ -17,7 +17,7 @@ const companySchema = z.object({
 router.get('/:storeId/companies', requireStoreAdmin, async (req: Request, res: Response) => {
     try {
         const companies = await prisma.company.findMany({
-            where: { storeId: req.params.storeId },
+            where: { storeId: req.params.storeId as string },
             include: { priceList: true },
             orderBy: { name: 'asc' },
         });
@@ -39,7 +39,7 @@ router.post('/:storeId/companies', requireStoreAdmin, async (req: Request, res: 
         const company = await prisma.company.create({
             data: {
                 ...parsed.data,
-                storeId: req.params.storeId,
+                storeId: req.params.storeId as string,
             },
             include: { priceList: true },
         });
@@ -60,7 +60,7 @@ router.put('/:storeId/companies/:id', requireStoreAdmin, async (req: Request, re
 
     try {
         const existing = await prisma.company.findFirst({
-            where: { id: req.params.id, storeId: req.params.storeId }
+            where: { id: req.params.id as string, storeId: req.params.storeId as string }
         });
         if (!existing) {
             res.status(404).json({ error: 'Company not found' });
@@ -68,7 +68,7 @@ router.put('/:storeId/companies/:id', requireStoreAdmin, async (req: Request, re
         }
 
         const company = await prisma.company.update({
-            where: { id: req.params.id },
+            where: { id: req.params.id as string },
             data: parsed.data,
             include: { priceList: true },
         });
@@ -82,14 +82,14 @@ router.put('/:storeId/companies/:id', requireStoreAdmin, async (req: Request, re
 router.delete('/:storeId/companies/:id', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
         const existing = await prisma.company.findFirst({
-            where: { id: req.params.id, storeId: req.params.storeId }
+            where: { id: req.params.id as string, storeId: req.params.storeId as string }
         });
         if (!existing) {
             res.status(404).json({ error: 'Company not found' });
             return;
         }
 
-        await prisma.company.delete({ where: { id: req.params.id } });
+        await prisma.company.delete({ where: { id: req.params.id as string } });
         res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: 'Internal server error' });

@@ -62,7 +62,7 @@ async function buildSystemPrompt(storeId: string): Promise<string> {
 
   const productList = products
     .map(
-      (p) =>
+      (p: any) =>
         `- ${p.name} (ID: ${p.id}): $${Number(p.price)} | ${p.stock > 0 ? `In stock (${p.stock})` : 'Out of stock'} | ${p.category ?? 'Uncategorized'} | Tags: ${p.tags.join(', ')}`
     )
     .join('\n');
@@ -227,7 +227,7 @@ export async function getEventRecommendations(
 
 Available products:
 ${products.map(
-    (p) => `ID: ${p.id} | ${p.name} | ${Number(p.price)} | ${p.category} | ${p.tags.join(', ')}`).join('\n')}
+    (p: any) => `ID: ${p.id} | ${p.name} | ${Number(p.price)} | ${p.category} | ${p.tags.join(', ')}`).join('\n')}
 
 Select the most relevant products for this event. Return ONLY valid JSON:
 {
