@@ -17,7 +17,7 @@ function ComponentPreview({ component }: { component: PageComponent }) {
         >
           <h2 className="text-3xl font-bold mb-3">{(p.title as string) ?? 'Hero Title'}</h2>
           <p className="text-lg opacity-90 mb-6">{(p.subtitle as string) ?? 'Subtitle text'}</p>
-          {p.ctaText && (
+          {Boolean(p.ctaText) && (
             <span className="bg-white text-primary-600 px-6 py-2.5 rounded-full font-medium text-sm inline-block">
               {p.ctaText as string}
             </span>
@@ -47,7 +47,7 @@ function ComponentPreview({ component }: { component: PageComponent }) {
     case 'Image':
       return (
         <div className="px-4 py-4 flex justify-center">
-          {p.src ? (
+          {Boolean(p.src) ? (
             <img
               src={p.src as string}
               alt={(p.alt as string) ?? ''}
@@ -168,11 +168,10 @@ function SortableComponent({
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`relative group border-2 transition-all ${
-        isSelected
+      className={`relative group border-2 transition-all ${isSelected
           ? 'border-primary-500 shadow-md'
           : 'border-transparent hover:border-gray-300'
-      } ${isDragging ? 'opacity-50 shadow-xl z-50' : ''}`}
+        } ${isDragging ? 'opacity-50 shadow-xl z-50' : ''}`}
     >
       {/* Component content */}
       <div onClick={() => onSelect(component.id)} className="cursor-pointer">
@@ -180,9 +179,8 @@ function SortableComponent({
       </div>
 
       {/* Drag handle + type label (shown on hover/select) */}
-      <div className={`absolute top-2 left-2 flex items-center gap-1 bg-white border border-gray-200 rounded-md px-2 py-0.5 shadow-sm text-xs text-gray-600 font-medium transition-opacity ${
-        isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-      }`}>
+      <div className={`absolute top-2 left-2 flex items-center gap-1 bg-white border border-gray-200 rounded-md px-2 py-0.5 shadow-sm text-xs text-gray-600 font-medium transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+        }`}>
         <span {...attributes} {...listeners} className="cursor-grab">
           <GripVertical className="w-3 h-3 text-gray-400" />
         </span>
@@ -192,9 +190,8 @@ function SortableComponent({
       {/* Settings button */}
       <button
         onClick={(e) => { e.stopPropagation(); onSelect(component.id); }}
-        className={`absolute top-2 right-2 p-1.5 bg-white border border-gray-200 rounded-md shadow-sm transition-opacity hover:bg-primary-50 hover:border-primary-300 ${
-          isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}
+        className={`absolute top-2 right-2 p-1.5 bg-white border border-gray-200 rounded-md shadow-sm transition-opacity hover:bg-primary-50 hover:border-primary-300 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+          }`}
       >
         <Settings className="w-3.5 h-3.5 text-gray-500" />
       </button>
@@ -215,14 +212,12 @@ export function Canvas({ components, selectedId, onSelect }: CanvasProps) {
     <div
       ref={setNodeRef}
       onClick={(e) => { if (e.target === e.currentTarget) onSelect(null); }}
-      className={`flex-1 min-h-full overflow-y-auto transition-colors ${
-        isOver ? 'bg-primary-50 ring-2 ring-primary-300 ring-inset' : 'bg-white'
-      }`}
+      className={`flex-1 min-h-full overflow-y-auto transition-colors ${isOver ? 'bg-primary-50 ring-2 ring-primary-300 ring-inset' : 'bg-white'
+        }`}
     >
       {components.length === 0 ? (
-        <div className={`flex flex-col items-center justify-center h-full min-h-[400px] text-center transition-colors ${
-          isOver ? 'text-primary-600' : 'text-gray-400'
-        }`}>
+        <div className={`flex flex-col items-center justify-center h-full min-h-[400px] text-center transition-colors ${isOver ? 'text-primary-600' : 'text-gray-400'
+          }`}>
           <div className="text-6xl mb-4">⊞</div>
           <p className="text-lg font-medium">Drag components here</p>
           <p className="text-sm mt-1">or drag from the palette on the left</p>

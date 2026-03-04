@@ -18,9 +18,10 @@ export default async function StoreLayout({
   params,
 }: {
   children: React.ReactNode;
-  params: { storeSlug: string };
+  params: Promise<{ storeSlug: string }>;
 }) {
-  const store = await getStore(params.storeSlug);
+  const { storeSlug } = await params;
+  const store = await getStore(storeSlug);
   if (!store) notFound();
 
   return (
@@ -67,8 +68,8 @@ export default async function StoreLayout({
             <div>
               <h4 className="font-semibold mb-4">Quick Links</h4>
               <ul className="space-y-2 text-sm text-gray-400">
-                <li><a href={`/${params.storeSlug}/products`} className="hover:text-white">Products</a></li>
-                <li><a href={`/${params.storeSlug}/contact`} className="hover:text-white">Contact Us</a></li>
+                <li><a href={`/${storeSlug}/products`} className="hover:text-white">Products</a></li>
+                <li><a href={`/${storeSlug}/contact`} className="hover:text-white">Contact Us</a></li>
               </ul>
             </div>
             <div>
@@ -85,7 +86,10 @@ export default async function StoreLayout({
       </div>
 
       {/* AI Chat Widget */}
-      <ChatWidget storeId={store.id} storeName={store.name} storeSlug={params.storeSlug} />
+      <ChatWidget storeId={store.id} storeName={store.name} storeSlug={storeSlug} />
     </>
   );
+}
+export function generateStaticParams() {
+  return [{ storeSlug: 'demo' }];
 }

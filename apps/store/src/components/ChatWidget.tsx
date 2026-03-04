@@ -8,8 +8,9 @@
  * - Minimizable floating widget
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
+import Image from 'next/image';
 import { MessageCircle, X, Send, Minimize2, ShoppingCart, Mic, Square } from 'lucide-react';
-import { chatApi } from '@/lib/api';
+import { chatApi, productsApi } from '@/lib/api';
 import { useCartStore } from '@/lib/cart';
 import { useRouter } from 'next/navigation';
 
@@ -65,6 +66,7 @@ export function ChatWidget({ storeId, storeName, storeSlug }: Props) {
   const inputRef = useRef<HTMLInputElement>(null);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const chunksRef = useRef<BlobPart[]>([]);
+  const streamRef = useRef<MediaStream | null>(null);
 
   // Auto scroll
   useEffect(() => {
@@ -74,9 +76,19 @@ export function ChatWidget({ storeId, storeName, storeSlug }: Props) {
   // Focus input when opened
   useEffect(() => {
     if (isOpen && !isMinimized) {
-      setTimeout(() => inputRef.current?.focus(), 100);
+      requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [isOpen, isMinimized]);
+
+  // Cleanup MediaRecorder and audio tracks on unmount
+  useEffect(() => {
+    return () => {
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== 'inactive') {
+        mediaRecorderRef.current.stop();
+      }
+      streamRef.current?.getTracks().forEach((track) => track.stop());
+    };
+  }, []);
 
   // Add initial greeting
   useEffect(() => {
@@ -109,7 +121,9 @@ export function ChatWidget({ storeId, storeName, storeSlug }: Props) {
               quantity: action.quantity ?? 1,
               image: product.images?.[0],
             });
-          } catch { }
+          } catch (err) {
+            console.error('Failed to add product to cart:', err);
+          }
         }
         break;
       }
@@ -119,6 +133,7 @@ export function ChatWidget({ storeId, storeName, storeSlug }: Props) {
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      streamRef.current = stream;
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
       chunksRef.current = [];
@@ -186,16 +201,13 @@ export function ChatWidget({ storeId, storeName, storeSlug }: Props) {
       // Handle action
       if (data.action) {
         await handleAction(data.action);
-        // If SHOW_PRODUCTS, fetch and attach
+        // If SHOW_PRODUCTS, fetch all at once via batch endpoint
         if (data.action.type === 'SHOW_PRODUCTS' && data.action.productIds?.length) {
-          const products = await Promise.allSettled(
-            data.action.productIds.map((id: string) =>
-              fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/stores/${storeId}/products/${id}`).then((r) => r.json())
-            )
-          );
-          const recs: ProductRec[] = data.action.productIds.map((id: string, i: number) => ({
+          const batchResult = await productsApi.batch(storeId, data.action.productIds);
+          const productMap = new Map(batchResult.products.map((p: any) => [p.id, p]));
+          const recs: ProductRec[] = data.action.productIds.map((id: string) => ({
             id,
-            product: products[i].status === 'fulfilled' ? products[i].value : null,
+            product: productMap.get(id) ?? null,
             reason: '',
           }));
           setMessages((msgs) => msgs.map((m) => m.id === assistantMsg.id ? { ...m, productRecs: recs } : m));
@@ -282,7 +294,7 @@ export function ChatWidget({ storeId, storeName, storeSlug }: Props) {
                       {msg.productRecs.filter((r) => r.product).map((rec) => (
                         <div key={rec.id} className="flex items-center gap-2 bg-gray-50 rounded-xl p-2 border border-gray-100">
                           {rec.product?.images?.[0] && (
-                            <img src={rec.product.images[0]} alt={rec.product.name} className="w-10 h-10 rounded-lg object-cover flex-shrink-0" />
+                            <Image src={rec.product.images[0]} alt={rec.product.name} width={40} height={40} unoptimized className="rounded-lg object-cover flex-shrink-0" />
                           )}
                           <div className="flex-1 min-w-0">
                             <p className="text-xs font-medium text-gray-900 truncate">{rec.product?.name}</p>

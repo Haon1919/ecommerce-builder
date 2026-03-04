@@ -1,6 +1,8 @@
 import { Prisma } from '@prisma/client';
 import { prisma } from '../db';
 import { logger } from '../utils/logger';
+import { NotFoundError } from '../errors';
+import { JwtPayload } from '../middleware/auth';
 
 export const ProductService = {
     async listProducts(params: { storeId: string, category?: any, search?: any, featured?: any, limit?: string, offset?: string, sort?: string, user?: any }) {
@@ -68,13 +70,13 @@ export const ProductService = {
         };
     },
 
-    async getProductById(storeId: string, productId: string, user?: any) {
+    async getProductById(storeId: string, productId: string, user?: JwtPayload) {
         const product = await prisma.product.findFirst({
             where: { id: productId, storeId, active: true },
         });
 
         if (!product) {
-            throw new Error('Product not found');
+            throw new NotFoundError('Product not found');
         }
 
         let modifiedProduct = product;
@@ -104,7 +106,7 @@ export const ProductService = {
     async updateProduct(storeId: string, productId: string, data: any) {
         const existing = await prisma.product.findFirst({ where: { id: productId, storeId } });
         if (!existing) {
-            throw new Error('Product not found');
+            throw new NotFoundError('Product not found');
         }
 
         return await prisma.product.update({
@@ -116,7 +118,7 @@ export const ProductService = {
     async deleteProduct(storeId: string, productId: string) {
         const existing = await prisma.product.findFirst({ where: { id: productId, storeId } });
         if (!existing) {
-            throw new Error('Product not found');
+            throw new NotFoundError('Product not found');
         }
 
         await prisma.product.update({ where: { id: productId }, data: { active: false } });
@@ -126,7 +128,7 @@ export const ProductService = {
     async generate3dModel(storeId: string, productId: string) {
         const product = await prisma.product.findFirst({ where: { id: productId, storeId } });
         if (!product) {
-            throw new Error('Product not found');
+            throw new NotFoundError('Product not found');
         }
 
         if (!product.images || product.images.length === 0) {
@@ -152,6 +154,34 @@ export const ProductService = {
         }, 5000);
 
         return { message: '3D generation started' };
+    },
+
+    async batchGetProducts(storeId: string, ids: string[], user?: JwtPayload) {
+        const products = await prisma.product.findMany({
+            where: { id: { in: ids }, storeId, active: true },
+            select: {
+                id: true, name: true, description: true, price: true, comparePrice: true,
+                stock: true, category: true, tags: true, images: true,
+                modelUrl: true, arEnabled: true, featured: true, trackStock: true,
+            },
+        });
+
+        if (user && user.type === 'USER') {
+            const dbUser = await prisma.user.findUnique({
+                where: { id: user.sub },
+                include: { company: { include: { priceList: true } } },
+            });
+            if (dbUser?.company?.priceList) {
+                const pricesOverride = (dbUser.company.priceList.prices as Record<string, string | number>) || {};
+                return products.map((p) => {
+                    const override = pricesOverride[p.id];
+                    if (override !== undefined) return { ...p, price: Number(override) as any };
+                    return p;
+                });
+            }
+        }
+
+        return products;
     },
 
     async bulkImportProducts(storeId: string, validatedProducts: any[]) {

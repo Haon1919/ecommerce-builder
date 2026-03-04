@@ -1,3 +1,4 @@
+import '@testing-library/jest-dom';
 import { render, screen, fireEvent } from '@testing-library/react';
 import { StoreNav } from './StoreNav';
 import { useCartStore } from '@/lib/cart';
@@ -12,14 +13,15 @@ jest.mock('next/navigation', () => ({
 
 // Mock the Zustand store
 jest.mock('@/lib/cart');
-const mockedUseCartStore = useCartStore as jest.Mock;
+const mockedUseCartStore = useCartStore as unknown as jest.Mock;
 
 const sampleStore: StoreInfo = {
-    id: 'store-1',
-    name: 'Test Store',
-    slug: 'test-store',
-    primaryColor: '#6366f1',
-    logoUrl: null,
+  id: 'store-1',
+  name: 'Test Store',
+  slug: 'test-store',
+  primaryColor: '#6366f1',
+  theme: 'BOOTSTRAP',
+  logoUrl: undefined,
 };
 
 describe('StoreNav', () => {
@@ -31,7 +33,7 @@ describe('StoreNav', () => {
   it('should render the store name and navigation links', () => {
     mockedUseCartStore.mockImplementation((selector) => selector({ totalItems: () => 0 }));
     render(<StoreNav store={sampleStore} />);
-    
+
     expect(screen.getByText('Test Store')).toBeInTheDocument();
     // Check for desktop links
     expect(screen.getByRole('link', { name: 'Home' })).toBeInTheDocument();
@@ -42,7 +44,7 @@ describe('StoreNav', () => {
   it('should not display a cart count when the cart is empty', () => {
     mockedUseCartStore.mockImplementation((selector) => selector({ totalItems: () => 0 }));
     render(<StoreNav store={sampleStore} />);
-    
+
     // The count span should not be in the document
     const cartLink = screen.getByRole('link', { name: /view shopping cart/i });
     expect(cartLink.querySelector('span')).toBeNull();
@@ -51,14 +53,14 @@ describe('StoreNav', () => {
   it('should display the correct cart count when cart has items', () => {
     mockedUseCartStore.mockImplementation((selector) => selector({ totalItems: () => 3 }));
     render(<StoreNav store={sampleStore} />);
-    
+
     expect(screen.getByText('3')).toBeInTheDocument();
   });
 
   it('should display "9+" when cart has more than 9 items', () => {
     mockedUseCartStore.mockImplementation((selector) => selector({ totalItems: () => 12 }));
     render(<StoreNav store={sampleStore} />);
-    
+
     expect(screen.getByText('9+')).toBeInTheDocument();
   });
 
@@ -67,7 +69,7 @@ describe('StoreNav', () => {
     render(<StoreNav store={sampleStore} />);
 
     const menuButton = screen.getByRole('button', { name: /toggle menu/i });
-    
+
     // Initially, mobile menu is closed
     expect(screen.queryByText('Home', { selector: 'a.block' })).not.toBeInTheDocument();
 

@@ -4,7 +4,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/auth';
 import { storeApi } from '@/lib/api';
 
-const THEMES = [
+type ThemeType = 'TAILWIND' | 'BOOTSTRAP' | 'BULMA' | 'PICO';
+const THEMES: { value: ThemeType, label: string, desc: string, preview: string }[] = [
   { value: 'TAILWIND', label: 'Tailwind CSS', desc: 'Modern utility-first styling', preview: 'bg-gradient-to-r from-blue-500 to-indigo-600' },
   { value: 'BOOTSTRAP', label: 'Bootstrap', desc: 'Classic, component-based design', preview: 'bg-gradient-to-r from-purple-600 to-purple-800' },
   { value: 'BULMA', label: 'Bulma', desc: 'Modern, flexbox-based framework', preview: 'bg-gradient-to-r from-teal-500 to-cyan-600' },
@@ -88,9 +89,8 @@ export default function SettingsPage() {
               <button
                 key={t.value}
                 onClick={() => setForm({ ...form, theme: t.value })}
-                className={`p-4 rounded-xl border-2 text-left transition-all ${
-                  form.theme === t.value ? 'border-primary-500 ring-1 ring-primary-300' : 'border-gray-200 hover:border-gray-300'
-                }`}
+                className={`p-4 rounded-xl border-2 text-left transition-all ${form.theme === t.value ? 'border-primary-500 ring-1 ring-primary-300' : 'border-gray-200 hover:border-gray-300'
+                  }`}
               >
                 <div className={`h-8 rounded-md mb-2 ${t.preview}`} />
                 <p className="font-medium text-sm text-gray-900">{t.label}</p>

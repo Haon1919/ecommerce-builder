@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { requireStoreAdmin, optionalAuth } from '../middleware/auth';
 import { OrderService } from '../services/order.service';
 import { logger } from '../utils/logger';
+import { NotFoundError, InsufficientStockError } from '../errors';
 
 const router = Router();
 
@@ -40,7 +41,11 @@ router.post('/', optionalAuth, async (req: Request, res: Response): Promise<void
     const order = await OrderService.createOrder(parsed.data.storeId, parsed.data, req.user);
     res.status(201).json(order);
   } catch (err: any) {
-    if (err.message.includes('not found') || err.message.includes('Insufficient stock')) {
+    if (err instanceof NotFoundError) {
+      res.status(404).json({ error: err.message });
+      return;
+    }
+    if (err instanceof InsufficientStockError) {
       res.status(400).json({ error: err.message });
       return;
     }
@@ -71,8 +76,8 @@ router.get('/:storeId/orders/:orderId', requireStoreAdmin, async (req: Request, 
     const order = await OrderService.getOrderById(storeId, orderId);
     res.json(order);
   } catch (err: any) {
-    if (err.message === 'Order not found') {
-      res.status(404).json({ error: 'Order not found' });
+    if (err instanceof NotFoundError) {
+      res.status(404).json({ error: err.message });
       return;
     }
     logger.error('Get order error', { error: err });
@@ -80,17 +85,29 @@ router.get('/:storeId/orders/:orderId', requireStoreAdmin, async (req: Request, 
   }
 });
 
+const updateStatusSchema = z.object({
+  status: z.enum(['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED']),
+  trackingNumber: z.string().optional(),
+});
+
 // PATCH /stores/:storeId/orders/:orderId/status
 router.patch('/:storeId/orders/:orderId/status', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
   const { storeId, orderId } = req.params as { storeId: string, orderId: string };
-  const { status, trackingNumber } = req.body as { status: string; trackingNumber?: string };
+
+  const parsed = updateStatusSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+    return;
+  }
+
+  const { status, trackingNumber } = parsed.data;
 
   try {
     const updated = await OrderService.updateOrderStatus(storeId, orderId, status, trackingNumber);
     res.json(updated);
   } catch (err: any) {
-    if (err.message === 'Order not found') {
-      res.status(404).json({ error: 'Order not found' });
+    if (err instanceof NotFoundError) {
+      res.status(404).json({ error: err.message });
       return;
     }
     logger.error('Update order status error', { error: err });

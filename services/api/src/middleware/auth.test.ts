@@ -16,6 +16,10 @@ jest.mock('../config', () => ({
     jwt: {
       secret: 'test-secret',
     },
+    logging: {
+      level: 'silent',
+      structured: false,
+    },
   },
 }));
 
@@ -133,32 +137,32 @@ describe('Auth Middleware', () => {
       expect(mockNext).not.toHaveBeenCalled();
     });
   });
-  
+
   describe('requireAdminOrSuperAdmin', () => {
     it('should call next() for a super admin', () => {
-        const req = getMockReq({ authorization: 'Bearer satoken' }, { storeId: 'store123' });
-        const res = getMockRes();
-        (mockedJwt.verify as jest.Mock).mockReturnValue(superAdminPayload);
-        requireAdminOrSuperAdmin(req, res, mockNext);
-        expect(mockNext).toHaveBeenCalled();
+      const req = getMockReq({ authorization: 'Bearer satoken' }, { storeId: 'store123' });
+      const res = getMockRes();
+      (mockedJwt.verify as jest.Mock).mockReturnValue(superAdminPayload);
+      requireAdminOrSuperAdmin(req, res, mockNext);
+      expect(mockNext).toHaveBeenCalled();
     });
 
     it('should call next() for a store admin with matching storeId', () => {
-        const req = getMockReq({ authorization: 'Bearer storetoken' }, { storeId: 'store123' });
-        const res = getMockRes();
-        (mockedJwt.verify as jest.Mock).mockReturnValue(storeAdminPayload);
-        requireAdminOrSuperAdmin(req, res, mockNext);
-        expect(mockNext).toHaveBeenCalled();
+      const req = getMockReq({ authorization: 'Bearer storetoken' }, { storeId: 'store123' });
+      const res = getMockRes();
+      (mockedJwt.verify as jest.Mock).mockReturnValue(storeAdminPayload);
+      requireAdminOrSuperAdmin(req, res, mockNext);
+      expect(mockNext).toHaveBeenCalled();
     });
 
     it('should return 403 for a store admin with mismatched storeId', () => {
-        const req = getMockReq({ authorization: 'Bearer storetoken' }, { storeId: 'store456' });
-        const res = getMockRes();
-        (mockedJwt.verify as jest.Mock).mockReturnValue(storeAdminPayload);
-        requireAdminOrSuperAdmin(req, res, mockNext);
-        expect(res.status).toHaveBeenCalledWith(403);
-        expect(res.json).toHaveBeenCalledWith({ error: 'Access denied' });
-        expect(mockNext).not.toHaveBeenCalled();
+      const req = getMockReq({ authorization: 'Bearer storetoken' }, { storeId: 'store456' });
+      const res = getMockRes();
+      (mockedJwt.verify as jest.Mock).mockReturnValue(storeAdminPayload);
+      requireAdminOrSuperAdmin(req, res, mockNext);
+      expect(res.status).toHaveBeenCalledWith(403);
+      expect(res.json).toHaveBeenCalledWith({ error: 'Access denied' });
+      expect(mockNext).not.toHaveBeenCalled();
     });
   });
 

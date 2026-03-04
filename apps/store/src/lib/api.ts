@@ -17,6 +17,8 @@ export const productsApi = {
     api.get(`/stores/${storeId}/products`, { params }).then((r) => r.data),
   get: (storeId: string, productId: string) =>
     api.get(`/stores/${storeId}/products/${productId}`).then((r) => r.data),
+  batch: (storeId: string, ids: string[]) =>
+    api.get(`/stores/${storeId}/products/batch`, { params: { ids: ids.join(',') } }).then((r) => r.data),
 };
 
 export const ordersApi = {

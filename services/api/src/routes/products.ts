@@ -4,9 +4,20 @@ import multer from 'multer';
 import { requireStoreAdmin, optionalAuth } from '../middleware/auth';
 import { ProductService } from '../services/product.service';
 import { logger } from '../utils/logger';
+import { NotFoundError } from '../errors';
 
 const router = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024 } });
+const upload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (!file.mimetype.startsWith('image/')) {
+      cb(new Error('Only image files are allowed'));
+      return;
+    }
+    cb(null, true);
+  },
+});
 
 const productSchema = z.object({
   sku: z.string().optional(),
@@ -50,6 +61,31 @@ router.get('/:storeId/products', optionalAuth, async (req: Request, res: Respons
   }
 });
 
+// GET /stores/:storeId/products/batch?ids=id1,id2,id3
+router.get('/:storeId/products/batch', optionalAuth, async (req: Request, res: Response): Promise<void> => {
+  const { storeId } = req.params as { storeId: string };
+  const idsParam = req.query.ids as string;
+
+  if (!idsParam) {
+    res.status(400).json({ error: 'ids query parameter required' });
+    return;
+  }
+
+  const ids = idsParam.split(',').map((id) => id.trim()).filter(Boolean);
+  if (ids.length === 0 || ids.length > 50) {
+    res.status(400).json({ error: 'Between 1 and 50 ids required' });
+    return;
+  }
+
+  try {
+    const products = await ProductService.batchGetProducts(storeId, ids, req.user);
+    res.json({ products });
+  } catch (err: any) {
+    logger.error('Batch get products error', { error: err });
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /stores/:storeId/products/:productId
 router.get('/:storeId/products/:productId', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   const { storeId, productId } = req.params as { storeId: string, productId: string };
@@ -58,8 +94,8 @@ router.get('/:storeId/products/:productId', optionalAuth, async (req: Request, r
     const product = await ProductService.getProductById(storeId, productId, req.user);
     res.json(product);
   } catch (err: any) {
-    if (err.message === 'Product not found') {
-      res.status(404).json({ error: 'Product not found' });
+    if (err instanceof NotFoundError) {
+      res.status(404).json({ error: err.message });
       return;
     }
     logger.error('Get product error', { error: err });
@@ -100,8 +136,8 @@ router.put('/:storeId/products/:productId', requireStoreAdmin, async (req: Reque
     const product = await ProductService.updateProduct(storeId, productId, parsed.data);
     res.json(product);
   } catch (err: any) {
-    if (err.message === 'Product not found') {
-      res.status(404).json({ error: 'Product not found' });
+    if (err instanceof NotFoundError) {
+      res.status(404).json({ error: err.message });
       return;
     }
     logger.error('Update product error', { error: err });
@@ -117,8 +153,8 @@ router.delete('/:storeId/products/:productId', requireStoreAdmin, async (req: Re
     const result = await ProductService.deleteProduct(storeId, productId);
     res.json(result);
   } catch (err: any) {
-    if (err.message === 'Product not found') {
-      res.status(404).json({ error: 'Product not found' });
+    if (err instanceof NotFoundError) {
+      res.status(404).json({ error: err.message });
       return;
     }
     logger.error('Delete product error', { error: err });
@@ -134,10 +170,10 @@ router.post('/:storeId/products/:productId/generate-3d', requireStoreAdmin, asyn
     const result = await ProductService.generate3dModel(storeId, productId);
     res.status(202).json(result);
   } catch (err: any) {
-    if (err.message === 'Product not found') {
-      res.status(404).json({ error: 'Product not found' });
+    if (err instanceof NotFoundError) {
+      res.status(404).json({ error: err.message });
       return;
-    } else if (err.message.includes('must have at least one image')) {
+    } else if (err.message?.includes('must have at least one image')) {
       res.status(400).json({ error: err.message });
       return;
     }

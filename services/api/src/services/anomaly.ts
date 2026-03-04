@@ -42,8 +42,8 @@ function klDivergence(p: number[], q: number[]): number {
 function toProbabilityDistribution(values: number[], numBuckets = 20): number[] {
   if (values.length === 0) return new Array(numBuckets).fill(1 / numBuckets);
 
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const min = values.reduce((a, b) => Math.min(a, b), Infinity);
+  const max = values.reduce((a, b) => Math.max(a, b), -Infinity);
   const range = max - min || 1;
   const buckets = new Array(numBuckets).fill(0);
 

@@ -15,6 +15,8 @@ import { logger } from '../utils/logger';
 
 let genAI: GoogleGenerativeAI | null = null;
 
+const promptCache = new Map<string, { prompt: string; expiresAt: number }>();
+
 function getGenAI(apiKey?: string): GoogleGenerativeAI {
   const key = apiKey || config.gemini.apiKey;
   if (!key) throw new Error('Gemini API key not configured');
@@ -30,6 +32,11 @@ function getGenAI(apiKey?: string): GoogleGenerativeAI {
  * Build the system prompt with full store context.
  */
 async function buildSystemPrompt(storeId: string): Promise<string> {
+  const cached = promptCache.get(storeId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.prompt;
+  }
+
   const [store, products] = await Promise.all([
     prisma.store.findUnique({
       where: { id: storeId },
@@ -55,13 +62,12 @@ async function buildSystemPrompt(storeId: string): Promise<string> {
 
   const productList = products
     .map(
-      // @ts-ignore
       (p) =>
-        `- ${p.name} (ID: ${p.id}): $${p.price} | ${p.stock > 0 ? `In stock (${p.stock})` : 'Out of stock'} | ${p.category ?? 'Uncategorized'} | Tags: ${p.tags.join(', ')}`
+        `- ${p.name} (ID: ${p.id}): $${Number(p.price)} | ${p.stock > 0 ? `In stock (${p.stock})` : 'Out of stock'} | ${p.category ?? 'Uncategorized'} | Tags: ${p.tags.join(', ')}`
     )
     .join('\n');
 
-  return `You are a knowledgeable, friendly shopping assistant for ${store.name}.
+  const prompt = `You are a knowledgeable, friendly shopping assistant for ${store.name}.
 
 ## About This Store
 ${store.description ?? 'A wonderful online store.'}
@@ -104,6 +110,9 @@ Available action types:
 - Don't discuss competitors or topics unrelated to this store
 - If you can't help with something, direct them to the contact page
 - Keep responses under 300 words unless giving a detailed product list`;
+
+  promptCache.set(storeId, { prompt, expiresAt: Date.now() + 5 * 60 * 1000 });
+  return prompt;
 }
 
 export interface ChatTurn {
@@ -132,10 +141,8 @@ export async function processChat(
   audioPayload?: AudioPayload
 ): Promise<ChatResult> {
   try {
-    const [systemPrompt, ai] = await Promise.all([
-      buildSystemPrompt(storeId),
-      Promise.resolve(getGenAI(storeGeminiKey)),
-    ]);
+    const ai = getGenAI(storeGeminiKey);
+    const systemPrompt = await buildSystemPrompt(storeId);
 
     const model: GenerativeModel = ai.getGenerativeModel({
       model: config.gemini.model,
@@ -210,6 +217,7 @@ export async function getEventRecommendations(
   const products = await prisma.product.findMany({
     where: { storeId, active: true, stock: { gt: 0 } },
     select: { id: true, name: true, description: true, price: true, category: true, tags: true },
+    take: 200,
   });
 
   const ai = getGenAI(storeGeminiKey);
@@ -219,8 +227,7 @@ export async function getEventRecommendations(
 
 Available products:
 ${products.map(
-    // @ts-ignore
-    (p) => `ID: ${p.id} | ${p.name} | ${p.price} | ${p.category} | ${p.tags.join(', ')}`).join('\n')}
+    (p) => `ID: ${p.id} | ${p.name} | ${Number(p.price)} | ${p.category} | ${p.tags.join(', ')}`).join('\n')}
 
 Select the most relevant products for this event. Return ONLY valid JSON:
 {

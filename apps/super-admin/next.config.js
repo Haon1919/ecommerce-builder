@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'standalone',
+  output: process.env.STATIC_EXPORT === 'true' ? 'export' : 'standalone',
+  basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
   experimental: { serverComponentsExternalPackages: ['socket.io-client'] },
-  images: { remotePatterns: [{ protocol: 'https', hostname: 'storage.googleapis.com' }] },
+  images: { unoptimized: true, remotePatterns: [{ protocol: 'https', hostname: 'storage.googleapis.com' }] },
 };
 
 module.exports = nextConfig;

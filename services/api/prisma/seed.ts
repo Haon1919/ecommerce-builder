@@ -73,14 +73,18 @@ async function main() {
         pages: {
           createMany: {
             data: [
-              { type: 'LANDING', slug: '', title: 'Home', published: true, layout: JSON.stringify([
-                { id: 'hero-1', type: 'HeroSection', order: 0, props: { title: 'Welcome to Demo Store', subtitle: 'Discover amazing products', ctaText: 'Shop Now', ctaLink: '/products', backgroundColor: '#6366f1', textColor: '#ffffff' } },
-                { id: 'featured-1', type: 'FeaturedProducts', order: 1, props: { title: 'Featured Products', count: 4 } },
-              ]) },
-              { type: 'PRODUCTS', slug: 'products', title: 'Products', published: true, layout: JSON.stringify([
-                { id: 'h1', type: 'Heading', order: 0, props: { text: 'All Products', level: 'h1', align: 'center' } },
-                { id: 'grid-1', type: 'ProductGrid', order: 1, props: { columns: 3, showFilters: true } },
-              ]) },
+              {
+                type: 'LANDING', slug: '', title: 'Home', published: true, layout: JSON.stringify([
+                  { id: 'hero-1', type: 'HeroSection', order: 0, props: { title: 'Welcome to Demo Store', subtitle: 'Discover amazing products', ctaText: 'Shop Now', ctaLink: '/products', backgroundColor: '#6366f1', textColor: '#ffffff' } },
+                  { id: 'featured-1', type: 'FeaturedProducts', order: 1, props: { title: 'Featured Products', count: 4 } },
+                ])
+              },
+              {
+                type: 'PRODUCTS', slug: 'products', title: 'Products', published: true, layout: JSON.stringify([
+                  { id: 'h1', type: 'Heading', order: 0, props: { text: 'All Products', level: 'h1', align: 'center' } },
+                  { id: 'grid-1', type: 'ProductGrid', order: 1, props: { columns: 3, showFilters: true } },
+                ])
+              },
               { type: 'CART', slug: 'cart', title: 'Cart', published: true, layout: JSON.stringify([]) },
               { type: 'CHECKOUT', slug: 'cart/checkout', title: 'Checkout', published: true, layout: JSON.stringify([]) },
               { type: 'CONFIRMATION', slug: 'cart/confirmation', title: 'Order Confirmation', published: true, layout: JSON.stringify([]) },
@@ -91,6 +95,7 @@ async function main() {
         products: {
           createMany: {
             data: [
+              { id: 'prod_ar', name: 'Future Chair', description: 'Future Chair 3D Model', price: 199.99, stock: 50, category: 'Furniture', tags: ['3d', 'ar', 'chair'], arEnabled: true, modelUrl: 'https://example.com/assets/chair.glb', images: [] },
               { name: 'Wireless Earbuds Pro', description: 'Premium wireless earbuds with active noise cancellation', price: 79.99, comparePrice: 99.99, stock: 50, category: 'Electronics', tags: ['audio', 'wireless', 'earbuds'], images: ['https://images.unsplash.com/photo-1590658268037-6bf12165a8df?w=500'], featured: true },
               { name: 'Leather Wallet', description: 'Slim genuine leather bifold wallet', price: 29.99, stock: 100, category: 'Accessories', tags: ['leather', 'wallet', 'men'], images: ['https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=500'] },
               { name: 'Yoga Mat Premium', description: 'Non-slip premium yoga mat, 6mm thick', price: 45.00, stock: 75, category: 'Sports', tags: ['yoga', 'fitness', 'mat'], images: ['https://images.unsplash.com/photo-1544367567-0f2fcb009e0b?w=500'] },
@@ -99,6 +104,9 @@ async function main() {
               { name: 'Minimalist Watch', description: 'Clean design Japanese movement watch', price: 149.00, stock: 30, category: 'Accessories', tags: ['watch', 'minimalist', 'style'], images: ['https://images.unsplash.com/photo-1524592094714-0f0654e20314?w=500'], featured: true },
             ],
           },
+        },
+        companies: {
+          create: [{ name: 'Acme Corp' }]
         },
       },
     });

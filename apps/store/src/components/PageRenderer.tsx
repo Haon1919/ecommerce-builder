@@ -72,11 +72,11 @@ function ComponentRenderer({ component, storeSlug, products = [] }: { component:
             color: (p.textColor as string) ?? '#ffffff',
           }}
         >
-          {p.backgroundImage && <div className="absolute inset-0 bg-black/40" />}
+          {Boolean(p.backgroundImage) && <div className="absolute inset-0 bg-black/40" />}
           <div className="relative z-10 max-w-3xl mx-auto">
             <h1 className="text-5xl font-bold mb-4 leading-tight">{(p.title as string) ?? 'Welcome'}</h1>
             <p className="text-xl opacity-90 mb-8">{(p.subtitle as string) ?? ''}</p>
-            {p.ctaText && (
+            {Boolean(p.ctaText) && (
               <Link href={(p.ctaLink as string) ?? '/products'} className="inline-block bg-white text-gray-900 font-semibold px-8 py-3.5 rounded-full hover:bg-gray-100 transition-colors text-lg">
                 {p.ctaText as string}
               </Link>
@@ -225,7 +225,7 @@ function ComponentRenderer({ component, storeSlug, products = [] }: { component:
       return (
         <section className="px-4 py-12 max-w-lg mx-auto">
           <h2 className="text-3xl font-bold mb-2">{(p.title as string) ?? 'Contact Us'}</h2>
-          {p.subtitle && <p className="text-gray-500 mb-6">{p.subtitle as string}</p>}
+          {Boolean(p.subtitle) && <p className="text-gray-500 mb-6">{p.subtitle as string}</p>}
           <Link href={`/${storeSlug}/contact`} className="btn-primary inline-block">
             Send us a message
           </Link>

@@ -12,7 +12,7 @@ import {
 jest.mock('../config', () => ({
   config: {
     encryption: {
-      key: 'a-test-key-that-is-at-least-32-bytes-long-for-testing',
+      key: '12345678901234567890123456789012',
     },
   },
 }));
@@ -37,10 +37,10 @@ describe('Encryption Service', () => {
       const invalidCiphertext = 'invalid-ciphertext';
       expect(decrypt(invalidCiphertext)).toBe('');
     });
-    
+
     it('should return an empty string on decryption failure from bad data', () => {
-        const badCiphertext = '616263:646566'; // valid hex, but not a valid cipher
-        expect(decrypt(badCiphertext)).toBe('');
+      const badCiphertext = '616263:646566'; // valid hex, but not a valid cipher
+      expect(decrypt(badCiphertext)).toBe('');
     });
   });
 
@@ -52,15 +52,15 @@ describe('Encryption Service', () => {
     });
 
     it('should handle emails with subdomains', () => {
-        const email = 'another.user@mail.example.co.uk';
-        const anonymized = anonymizeEmail(email);
-        expect(anonymized).toBe('a***@m***.example.co.uk');
+      const email = 'another.user@mail.example.co.uk';
+      const anonymized = anonymizeEmail(email);
+      expect(anonymized).toBe('a***@m***.example.co.uk');
     });
 
     it('should handle emails with no domain gracefully', () => {
-        const email = 'testuser';
-        const anonymized = anonymizeEmail(email);
-        expect(anonymized).toBe('***');
+      const email = 'testuser';
+      const anonymized = anonymizeEmail(email);
+      expect(anonymized).toBe('***');
     });
   });
 
@@ -90,11 +90,11 @@ describe('Encryption Service', () => {
     });
 
     it('should produce the same hash regardless of case and whitespace', () => {
-        const value1 = '  USER@EXAMPLE.COM  ';
-        const value2 = 'user@example.com';
-        const hash1 = hashForAnalytics(value1);
-        const hash2 = hashForAnalytics(value2);
-        expect(hash1).toBe(hash2);
+      const value1 = '  USER@EXAMPLE.COM  ';
+      const value2 = 'user@example.com';
+      const hash1 = hashForAnalytics(value1);
+      const hash2 = hashForAnalytics(value2);
+      expect(hash1).toBe(hash2);
     });
   });
 
@@ -113,14 +113,14 @@ describe('Encryption Service', () => {
     });
 
     it('should return null if decryption fails', () => {
-        const invalidCiphertext = 'invalid:ciphertext';
-        expect(decryptJson(invalidCiphertext)).toBeNull();
+      const invalidCiphertext = 'invalid:ciphertext';
+      expect(decryptJson(invalidCiphertext)).toBeNull();
     });
 
     it('should return null if the decrypted string is not valid JSON', () => {
-        const nonJsonString = 'this is not json';
-        const encrypted = encrypt(nonJsonString);
-        expect(decryptJson(encrypted)).toBeNull();
+      const nonJsonString = 'this is not json';
+      const encrypted = encrypt(nonJsonString);
+      expect(decryptJson(encrypted)).toBeNull();
     });
   });
 });

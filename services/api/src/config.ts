@@ -114,6 +114,25 @@ if (config.env === 'production' && config.jwt.secret.length < 64) {
   throw new Error('JWT_SECRET must be at least 64 characters long in production');
 }
 
+if (config.env === 'production' && config.jwt.refreshSecret === 'dev-refresh-secret') {
+  throw new Error('REFRESH_TOKEN_SECRET must be set in production');
+}
+
+if (config.env === 'production') {
+  // Enforce entropy on the encryption key in production
+  if (/^(.)\1+$/.test(config.encryption.key)) {
+    throw new Error('ENCRYPTION_KEY must have sufficient entropy in production');
+  }
+
+  // Prevent permissive or dev CORS origins in production
+  if (config.cors.allowedOrigins.length === 0) {
+    throw new Error('ALLOWED_ORIGINS must be explicitly configured in production');
+  }
+  if (config.cors.allowedOrigins.some((o) => o.includes('localhost') || o.includes('127.0.0.1') || o === '*')) {
+    throw new Error('ALLOWED_ORIGINS cannot contain localhost or * in production');
+  }
+}
+
 // Warn loudly if obviously-weak keys are used outside of production
 if (config.env !== 'production') {
   if (/^0+$/.test(config.encryption.key)) {

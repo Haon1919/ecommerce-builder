@@ -20,7 +20,7 @@ declare global {
   }
 }
 
-export function signToken(payload: Omit<JwtPayload, never>): string {
+export function signToken(payload: JwtPayload): string {
   return jwt.sign(payload, config.jwt.secret, {
     expiresIn: config.jwt.expiresIn,
   } as jwt.SignOptions);

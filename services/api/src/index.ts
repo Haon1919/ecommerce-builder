@@ -11,7 +11,7 @@ import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { connectDB, disconnectDB } from './db';
 import { logger, morganStream } from './utils/logger';
-import { requestLogger, responseTime, scrubPIIForSuperAdmin } from './middleware/security';
+import { requestLogger, responseTime, scrubPIIForSuperAdmin, getAndResetRequestCount } from './middleware/security';
 import { verifyToken } from './middleware/auth';
 import { runAnomalyChecks, recordMetric } from './services/anomaly';
 import { cleanupOldData } from './services/cleanup';
@@ -187,7 +187,7 @@ async function start() {
   setInterval(async () => {
     try {
       await runAnomalyChecks();
-      await recordMetric('api_requests', Math.random() * 100); // Would use real count in prod
+      await recordMetric('api_requests', getAndResetRequestCount());
     } catch (err) {
       logger.error('Scheduler error', { error: err });
     }

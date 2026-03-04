@@ -3,9 +3,28 @@ import { prisma } from '../db';
 import { encrypt, decrypt, encryptJson, decryptJson } from './encryption';
 import { logger } from '../utils/logger';
 import { recordMetric } from './anomaly';
+import { NotFoundError, InsufficientStockError } from '../errors';
+import { JwtPayload } from '../middleware/auth';
+
+interface OrderItem {
+  productId: string;
+  quantity: number;
+  variantInfo?: unknown;
+}
+
+interface CreateOrderData {
+  storeId: string;
+  customerEmail: string;
+  customerName: string;
+  customerPhone?: string;
+  shippingAddress: Record<string, unknown>;
+  items: OrderItem[];
+  notes?: string;
+  paymentTerms?: string;
+}
 
 export const OrderService = {
-    async createOrder(storeId: string, data: any, user: any) {
+    async createOrder(storeId: string, data: CreateOrderData, user: JwtPayload | undefined) {
         let companyId: string | null = null;
         let pricesOverride: Record<string, string | number> = {};
 
@@ -35,10 +54,10 @@ export const OrderService = {
         for (const item of data.items) {
             const product = productMap.get(item.productId);
             if (!product) {
-                throw new Error(`Product ${item.productId} not found`);
+                throw new NotFoundError(`Product ${item.productId} not found`);
             }
             if (product.trackStock && product.stock < item.quantity) {
-                throw new Error(`Insufficient stock for ${product.name}`);
+                throw new InsufficientStockError(`Insufficient stock for ${product.name}`);
             }
         }
 
@@ -60,15 +79,11 @@ export const OrderService = {
         const shipping = freeShippingAbove && subtotal >= freeShippingAbove ? 0 : flatShipping;
         const total = subtotal + tax + shipping;
 
-        // Generate order number
-        const count = await prisma.order.count({ where: { storeId: storeId } });
-        const orderNumber = `ORD-${new Date().getFullYear()}-${String(count + 1).padStart(5, '0')}`;
-
-        // Encrypt PII
+        // Encrypt PII — create order first, then derive unique order number from its CUID
         const order = await prisma.order.create({
             data: {
                 storeId: storeId,
-                orderNumber,
+                orderNumber: 'PENDING',
                 customerEmailEnc: encrypt(data.customerEmail),
                 customerNameEnc: encrypt(data.customerName),
                 customerPhoneEnc: data.customerPhone ? encrypt(data.customerPhone) : null,
@@ -98,6 +113,10 @@ export const OrderService = {
             include: { items: { include: { product: { select: { name: true, images: true } } } } },
         });
 
+        // Derive collision-free order number from the order's own CUID
+        const orderNumber = `ORD-${new Date().getFullYear()}-${order.id.slice(-6).toUpperCase()}`;
+        await prisma.order.update({ where: { id: order.id }, data: { orderNumber } });
+
         // Decrement stock
         await Promise.all(
             data.items.map((item: any) => {
@@ -117,7 +136,7 @@ export const OrderService = {
         const orderToReturn = order as any;
         return {
             id: orderToReturn.id,
-            orderNumber: orderToReturn.orderNumber,
+            orderNumber,
             status: orderToReturn.status,
             subtotal: orderToReturn.subtotal,
             tax: orderToReturn.tax,
@@ -166,7 +185,7 @@ export const OrderService = {
         });
 
         if (!order) {
-            throw new Error('Order not found');
+            throw new NotFoundError('Order not found');
         }
 
         return {
@@ -185,7 +204,7 @@ export const OrderService = {
     async updateOrderStatus(storeId: string, orderId: string, status: string, trackingNumber?: string) {
         const order = await prisma.order.findFirst({ where: { id: orderId, storeId } });
         if (!order) {
-            throw new Error('Order not found');
+            throw new NotFoundError('Order not found');
         }
 
         const updates: Record<string, unknown> = { status };

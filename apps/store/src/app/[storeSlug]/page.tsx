@@ -3,14 +3,15 @@ import { storeApi, productsApi, experimentsApi } from '@/lib/api';
 import { PageRenderer } from '@/components/PageRenderer';
 import type { StoreInfo, PageComponent } from '@/types';
 
-export default async function StoreLanding({ params }: { params: { storeSlug: string } }) {
+export default async function StoreLanding({ params }: { params: Promise<{ storeSlug: string }> }) {
+  const { storeSlug } = await params;
   let store: StoreInfo, page: { layout: PageComponent[] };
   let activeExperiments = [];
 
   try {
     [store, page] = await Promise.all([
-      storeApi.getBySlug(params.storeSlug),
-      storeApi.getPage((await storeApi.getBySlug(params.storeSlug)).id, ''),
+      storeApi.getBySlug(storeSlug),
+      storeApi.getPage((await storeApi.getBySlug(storeSlug)).id, ''),
     ]);
     // Fetch experiments independently so it doesn't fail the whole page if it errors
     try {
@@ -50,8 +51,12 @@ export default async function StoreLanding({ params }: { params: { storeSlug: st
   return (
     <PageRenderer
       layout={Array.isArray(page.layout) ? page.layout : []}
-      storeSlug={params.storeSlug}
+      storeSlug={storeSlug}
       products={products}
     />
   );
+}
+
+export function generateStaticParams() {
+  return [{ storeSlug: 'demo' }];
 }

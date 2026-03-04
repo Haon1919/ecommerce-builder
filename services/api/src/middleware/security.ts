@@ -2,6 +2,14 @@ import { Request, Response, NextFunction } from 'express';
 import { prisma } from '../db';
 import { logger } from '../utils/logger';
 
+let requestCount = 0;
+
+export function getAndResetRequestCount(): number {
+  const count = requestCount;
+  requestCount = 0;
+  return count;
+}
+
 /**
  * Log every API request to the database for the live log viewer.
  * PII is stripped — only method, path, status, duration are logged.
@@ -12,6 +20,7 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
   req.headers['x-trace-id'] = traceId;
 
   res.on('finish', () => {
+    requestCount++;
     const duration = Date.now() - start;
     const storeId = req.user?.storeId ?? null;
 
@@ -64,7 +73,7 @@ export function responseTime(req: Request, res: Response, next: NextFunction): v
       prisma.metricSnapshot
         .create({
           data: {
-            metric: 'response_time_ms',
+            metric: 'response_time_p99',
             value: durationMs,
             storeId: req.user?.storeId ?? null,
           },
@@ -91,13 +100,11 @@ const PII_FIELDS = [
 ];
 
 export function scrubPIIForSuperAdmin(req: Request, res: Response, next: NextFunction): void {
-  if (req.user?.type !== 'SUPER_ADMIN') {
-    next();
-    return;
-  }
-
   const originalJson = res.json.bind(res);
   res.json = (body: unknown) => {
+    if (req.user?.type !== 'SUPER_ADMIN') {
+      return originalJson(body);
+    }
     const scrubbed = deepScrub(body, PII_FIELDS);
     return originalJson(scrubbed);
   };
