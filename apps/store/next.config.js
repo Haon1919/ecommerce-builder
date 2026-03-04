@@ -2,6 +2,7 @@
 const nextConfig = {
   output: process.env.STATIC_EXPORT === 'true' ? 'export' : 'standalone',
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
+  assetPrefix: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
   reactStrictMode: true,
   env: {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001',
