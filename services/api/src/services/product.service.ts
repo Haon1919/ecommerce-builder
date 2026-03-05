@@ -173,7 +173,7 @@ export const ProductService = {
             });
             if (dbUser?.company?.priceList) {
                 const pricesOverride = (dbUser.company.priceList.prices as Record<string, string | number>) || {};
-                return products.map((p) => {
+                return products.map((p: any) => {
                     const override = pricesOverride[p.id];
                     if (override !== undefined) return { ...p, price: Number(override) as any };
                     return p;

@@ -141,7 +141,7 @@ router.put('/:storeId/experiments/:experimentId', requireStoreAdmin, async (req:
     const { name, status, variants } = parsed.data;
 
     // We'll run this in a transaction: update experiment, delete old variants, create new ones
-    const updatedExperiment = await prisma.$transaction(async (tx) => {
+    const updatedExperiment = await prisma.$transaction(async (tx: any) => {
         // 1. Update the experiment fields
         const exp = await tx.experiment.update({
             where: { id: experimentId },
