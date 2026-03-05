@@ -1,5 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
+import { encrypt, encryptJson } from '../src/services/encryption';
 
 const prisma = new PrismaClient();
 
@@ -111,6 +112,77 @@ async function main() {
       },
     });
     console.log(`Created demo store: ${store.slug}`);
+  }
+
+  // --- Seed Demo Orders ---
+  const activeStore = await prisma.store.findUnique({ where: { slug: demoSlug } });
+  if (activeStore) {
+    const existingOrdersCount = await prisma.order.count({ where: { storeId: activeStore.id } });
+    if (existingOrdersCount === 0) {
+      const products = await prisma.product.findMany({ where: { storeId: activeStore.id } });
+      if (products.length >= 2) {
+        const demoCustomers = [
+          { name: 'Alice Smith', email: 'alice@example.com', phone: '555-0101', address: { line1: '123 Apple St', city: 'Cupertino', state: 'CA', zip: '95014', country: 'US' } },
+          { name: 'Bob Jones', email: 'bob@example.com', phone: '555-0102', address: { line1: '456 Banana Ave', city: 'Atlanta', state: 'GA', zip: '30301', country: 'US' } },
+          { name: 'Charlie Brown', email: 'charlie@example.com', phone: '555-0103', address: { line1: '789 Cherry Blvd', city: 'Chicago', state: 'IL', zip: '60601', country: 'US' } },
+          { name: 'Diana Prince', email: 'diana@example.com', phone: '555-0104', address: { line1: '101 Date Way', city: 'Austin', state: 'TX', zip: '73301', country: 'US' } },
+          { name: 'Evan Wright', email: 'evan@example.com', phone: '555-0105', address: { line1: '202 Elderberry Ln', city: 'Denver', state: 'CO', zip: '80201', country: 'US' } },
+        ];
+
+        const statuses = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] as const;
+
+        console.log('Seeding 15 demo orders...');
+        for (let i = 1; i <= 15; i++) {
+          const customer = demoCustomers[i % demoCustomers.length];
+          const status = statuses[i % statuses.length];
+
+          const orderItems = [];
+          let subtotal = 0;
+          const itemCount = (i % 2) + 1; // 1 or 2 items
+
+          for (let j = 0; j < itemCount; j++) {
+            const product = products[(i + j) % products.length];
+            const quantity = (j % 2) + 1; // 1 or 2 qty
+            const pPrice = Number(product.price);
+            orderItems.push({
+              productId: product.id,
+              productName: product.name,
+              quantity,
+              price: product.price,
+            });
+            subtotal += pPrice * quantity;
+          }
+
+          const tax = subtotal * 0.085;
+          const shipping = subtotal > 50 ? 0 : 5.99;
+          const total = subtotal + tax + shipping;
+
+          const createdAt = new Date();
+          createdAt.setDate(createdAt.getDate() - (30 - (i * 2)));
+
+          await prisma.order.create({
+            data: {
+              storeId: activeStore.id,
+              orderNumber: `ORD-DEMO-${1000 + i}`,
+              status,
+              customerNameEnc: encrypt(customer.name) || '',
+              customerEmailEnc: encrypt(customer.email) || '',
+              customerPhoneEnc: encrypt(customer.phone) || '',
+              shippingAddrEnc: encryptJson(customer.address) || '',
+              subtotal,
+              tax,
+              shipping,
+              total,
+              createdAt,
+              items: {
+                create: orderItems,
+              },
+            },
+          });
+        }
+        console.log('Orders seeded successfully.');
+      }
+    }
   }
 
   // Create default alert rules

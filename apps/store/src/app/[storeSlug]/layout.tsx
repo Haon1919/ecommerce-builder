@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation';
 import Script from 'next/script';
+import Image from 'next/image';
 import { storeApi } from '@/lib/api';
 import type { StoreInfo } from '@/types';
 import { StoreNav } from '@/components/StoreNav';
@@ -87,8 +88,15 @@ export default async function StoreLayout({
               )}
             </div>
           </div>
-          <div className="text-center mt-8 pt-8 border-t border-gray-800 text-gray-500 text-sm">
-            © {new Date().getFullYear()} {store.name}. All rights reserved.
+          <div className="mt-8 pt-8 border-t border-gray-800 flex flex-col items-center justify-center space-y-4">
+            <div className="text-gray-500 text-sm">
+              © {new Date().getFullYear()} {store.name}. All rights reserved.
+            </div>
+            <a href="#" className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-800 hover:bg-gray-700 transition-colors">
+              <span className="text-xs text-gray-400">Powered by</span>
+              <Image src="/logo.png" alt="Ecommerce Builder Logo" width={20} height={20} className="object-contain" />
+              <span className="text-sm font-semibold text-white tracking-wide">Ecommerce Builder</span>
+            </a>
           </div>
         </footer>
       </div>
