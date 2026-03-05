@@ -271,18 +271,6 @@ jobs:
             context: services/api
             dockerfile: services/api/Dockerfile
             changed: ${{ needs.changes.outputs.api }}
-          - name: admin
-            context: .
-            dockerfile: apps/admin/Dockerfile
-            changed: ${{ needs.changes.outputs.admin }}
-          - name: store
-            context: .
-            dockerfile: apps/store/Dockerfile
-            changed: ${{ needs.changes.outputs.store }}
-          - name: super-admin
-            context: .
-            dockerfile: apps/super-admin/Dockerfile
-            changed: ${{ needs.changes.outputs.super-admin }}
     steps:
       - uses: actions/checkout@v4
       - uses: docker/setup-buildx-action@v3
