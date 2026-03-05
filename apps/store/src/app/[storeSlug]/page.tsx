@@ -57,7 +57,5 @@ export default async function StoreLanding({ params }: { params: Promise<{ store
 }
 
 export function generateStaticParams() {
-  // 'demo' is now handled by the dedicated /demo/page.tsx for static export
-  // This dynamic route only runs in server mode with an API
-  return [];
+  return [{ storeSlug: 'demo' }];
 }

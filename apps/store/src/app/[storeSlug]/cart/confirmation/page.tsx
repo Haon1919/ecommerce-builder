@@ -1,9 +1,10 @@
 'use client';
+import { Suspense } from 'react';
 import { useSearchParams, useParams } from 'next/navigation';
 import Link from 'next/link';
 import { CheckCircle, Package, Mail } from 'lucide-react';
 
-export default function ConfirmationPage() {
+function ConfirmationContent() {
   const params = useParams<{ storeSlug: string }>();
   const searchParams = useSearchParams();
   const orderNumber = searchParams.get('order');
@@ -46,5 +47,13 @@ export default function ConfirmationPage() {
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function ConfirmationPage() {
+  return (
+    <Suspense fallback={<div className="max-w-2xl mx-auto px-6 py-20 text-center text-gray-400">Loading...</div>}>
+      <ConfirmationContent />
+    </Suspense>
   );
 }

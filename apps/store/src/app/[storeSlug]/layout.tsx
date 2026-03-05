@@ -5,7 +5,10 @@ import type { StoreInfo } from '@/types';
 import { StoreNav } from '@/components/StoreNav';
 import { ChatWidget } from '@/components/ChatWidget';
 
+const isStaticExport = process.env.STATIC_EXPORT === 'true';
+
 async function getStore(slug: string): Promise<StoreInfo | null> {
+  if (isStaticExport) return null;
   try {
     return await storeApi.getBySlug(slug);
   } catch {
@@ -22,7 +25,12 @@ export default async function StoreLayout({
 }) {
   const { storeSlug } = await params;
   const store = await getStore(storeSlug);
-  if (!store) notFound();
+  if (!store && !isStaticExport) notFound();
+
+  // During static export, render a minimal wrapper (the demo page will provide its own content)
+  if (!store) {
+    return <>{children}</>;
+  }
 
   return (
     <>
