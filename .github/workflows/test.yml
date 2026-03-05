@@ -71,10 +71,8 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: services/api/package-lock.json
 
       - name: Install dependencies
-        working-directory: services/api
         run: npm ci
 
       - name: TypeScript type check
@@ -120,9 +118,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: apps/admin/package-lock.json
       - name: Install dependencies
-        working-directory: apps/admin
         run: npm ci
       - name: TypeScript type check
         working-directory: apps/admin
@@ -148,9 +144,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: apps/store/package-lock.json
       - name: Install dependencies
-        working-directory: apps/store
         run: npm ci
       - name: TypeScript type check
         working-directory: apps/store
@@ -176,9 +170,7 @@ jobs:
         with:
           node-version: '20'
           cache: 'npm'
-          cache-dependency-path: apps/super-admin/package-lock.json
       - name: Install dependencies
-        working-directory: apps/super-admin
         run: npm ci
       - name: TypeScript type check
         working-directory: apps/super-admin

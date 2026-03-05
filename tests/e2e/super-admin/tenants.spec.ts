@@ -15,7 +15,7 @@ test.describe('Super Admin Login Flow', () => {
         await page.click('button[type="submit"]');
 
         // Verify successful login to super admin dashboard
-        await expect(page).toHaveURL('/dashboard');
+        await expect(page).toHaveURL('/dashboard/');
     });
 
     test('should view tenants list', async ({ page }) => {
@@ -31,10 +31,10 @@ test.describe('Super Admin Login Flow', () => {
         await page.fill('input[type="email"]', 'superadmin@example.com');
         await page.fill('input[type="password"]', 'SuperAdmin123!');
         await page.click('button[type="submit"]');
-        await expect(page).toHaveURL('/dashboard');
+        await expect(page).toHaveURL('/dashboard/');
 
         await page.goto('/tenants');
-        await expect(page).toHaveURL('/tenants');
+        await expect(page).toHaveURL('/tenants/');
         // await expect(page.locator('table')).toBeVisible();
     });
 });

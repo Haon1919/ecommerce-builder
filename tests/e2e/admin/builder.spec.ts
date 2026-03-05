@@ -19,7 +19,7 @@ test.describe('Admin Builder Flow', () => {
         await page.fill('input[type="email"]', 'admin@demo-store.com');
         await page.fill('input[type="password"]', 'Admin123!');
         await page.click('button[type="submit"]');
-        await expect(page).toHaveURL('/dashboard');
+        await expect(page).toHaveURL('/dashboard/');
     });
 
     test('should access and load the store builder', async ({ page }) => {
@@ -27,7 +27,7 @@ test.describe('Admin Builder Flow', () => {
         await page.goto('/builder');
 
         // Verify builder interface loads
-        await expect(page).toHaveURL('/builder');
+        await expect(page).toHaveURL('/builder/');
         // Assuming there is a canvas or toolbar
         // await expect(page.locator('[data-testid="builder-canvas"]')).toBeVisible();
     });
