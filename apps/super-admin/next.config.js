@@ -3,6 +3,7 @@ const nextConfig = {
   output: process.env.STATIC_EXPORT === 'true' ? 'export' : 'standalone',
   basePath: process.env.NEXT_PUBLIC_BASE_PATH || '',
   assetPrefix: process.env.NEXT_PUBLIC_BASE_PATH || undefined,
+  trailingSlash: true,
   experimental: { serverComponentsExternalPackages: ['socket.io-client'] },
   images: { unoptimized: true, remotePatterns: [{ protocol: 'https', hostname: 'storage.googleapis.com' }] },
 };
