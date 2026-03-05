@@ -36,11 +36,52 @@ export default async function StoreLanding({ params }: { params: Promise<{ store
         props: { height: 40 }
       },
       {
-        id: 'newsletter-1', type: 'NewsletterForm', order: 4,
+        id: 'testimonial-1', type: 'Testimonial', order: 4,
+        props: {
+          quote: 'The page builder makes it incredibly easy to customize our store. We launched in minutes!',
+          author: 'Alex Chen, Store Owner',
+          rating: 5,
+        }
+      },
+      {
+        id: 'spacer-2', type: 'Spacer', order: 5,
+        props: { height: 20 }
+      },
+      {
+        id: 'newsletter-1', type: 'NewsletterForm', order: 6,
         props: { title: 'Stay Updated', placeholder: 'Enter your email' }
       },
     ];
-    return <PageRenderer layout={demoLayout} storeSlug={storeSlug} products={[]} />;
+
+    const basePath = process.env.NEXT_PUBLIC_BASE_PATH || '';
+    const demoProducts = [
+      {
+        id: '1', name: 'Noir Pro Wireless Headphones', price: 249.99, comparePrice: 349.99,
+        images: [`${basePath}/demo-products/headphones.png`], stock: 24, category: 'Electronics',
+      },
+      {
+        id: '2', name: 'Heritage Canvas Backpack', price: 89.95,
+        images: [`${basePath}/demo-products/backpack.png`], stock: 18, category: 'Accessories',
+      },
+      {
+        id: '3', name: 'Pulse Fit Smartwatch', price: 199.00, comparePrice: 279.00,
+        images: [`${basePath}/demo-products/watch.png`], stock: 7, category: 'Electronics',
+      },
+      {
+        id: '4', name: 'Cloud Walker Sneakers', price: 129.99,
+        images: [`${basePath}/demo-products/sneakers.png`], stock: 32, category: 'Footwear',
+      },
+      {
+        id: '5', name: 'Aviator Gold Sunglasses', price: 159.00,
+        images: [`${basePath}/demo-products/sunglasses.png`], stock: 0, category: 'Accessories',
+      },
+      {
+        id: '6', name: 'Summit Insulated Bottle', price: 34.99,
+        images: [`${basePath}/demo-products/bottle.png`], stock: 50, category: 'Lifestyle',
+      },
+    ];
+
+    return <PageRenderer layout={demoLayout} storeSlug={storeSlug} products={demoProducts} />;
   }
 
   let store: StoreInfo, page: { layout: PageComponent[] };
