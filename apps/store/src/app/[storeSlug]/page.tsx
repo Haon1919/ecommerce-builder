@@ -11,7 +11,36 @@ export default async function StoreLanding({ params }: { params: Promise<{ store
   // During static export (GitHub Pages), render a demo storefront
   // without making any API calls
   if (isStaticExport) {
-    return <PageRenderer layout={[]} storeSlug={storeSlug} products={[]} />;
+    const demoLayout: PageComponent[] = [
+      {
+        id: 'hero-1', type: 'HeroSection', order: 0,
+        props: {
+          title: 'Welcome to the Demo Store',
+          subtitle: 'This is a static preview of an e-commerce storefront built with the page builder. Deploy the API to see live data.',
+          backgroundColor: '#6366f1',
+          textColor: '#ffffff',
+          ctaText: 'Browse Products',
+          ctaLink: `/${storeSlug}/products`,
+        }
+      },
+      {
+        id: 'heading-1', type: 'Heading', order: 1,
+        props: { text: 'Featured Products', level: 'h2', align: 'center' }
+      },
+      {
+        id: 'grid-1', type: 'ProductGrid', order: 2,
+        props: { columns: '3', limit: 6 }
+      },
+      {
+        id: 'spacer-1', type: 'Spacer', order: 3,
+        props: { height: 40 }
+      },
+      {
+        id: 'newsletter-1', type: 'NewsletterForm', order: 4,
+        props: { title: 'Stay Updated', placeholder: 'Enter your email' }
+      },
+    ];
+    return <PageRenderer layout={demoLayout} storeSlug={storeSlug} products={[]} />;
   }
 
   let store: StoreInfo, page: { layout: PageComponent[] };
