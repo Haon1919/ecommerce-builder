@@ -1,7 +1,9 @@
 # Error Log: User Flows
 
+> **Snapshot date:** Early development phase (pre-test-fix iterations). These results may no longer reflect the current test status. Run `npm run test:ui` to get up-to-date results.
+
 This document records the errors encountered while testing the local user flows (excluding Gemini AI flows) using the E2E Playwright test suite.
-Out of 10 tests, 4 passed and 6 failed.
+Out of 10 tests, 4 passed and 6 failed at the time of this snapshot.
 
 ## Admin Flow Failures
 

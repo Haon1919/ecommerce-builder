@@ -182,10 +182,11 @@ Located at `/dashboard/monitoring`.
 The system compares the current 5-minute metric window against a rolling 7-day baseline using **KL Divergence** (Kullback-Leibler). This catches unusual patterns before they become user-facing failures.
 
 **Metrics monitored:**
-- Error rate (HTTP 5xx responses)
-- Response time (milliseconds)
-- Orders per minute
-- Chat sessions per minute
+- Error rate (`error_rate`) — HTTP 5xx responses
+- Response time (`response_time_p99`) — 99th percentile API response time in milliseconds
+- Orders per minute (`order_count`)
+- Chat sessions per minute (`chat_sessions`)
+- Total API requests per minute (`api_requests`)
 
 **KL Divergence thresholds:**
 

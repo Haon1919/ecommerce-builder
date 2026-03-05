@@ -65,7 +65,6 @@ export function responseTime(req: Request, res: Response, next: NextFunction): v
   res.on('finish', () => {
     const durationNs = Number(process.hrtime.bigint() - start);
     const durationMs = durationNs / 1_000_000;
-    res.setHeader('X-Response-Time', `${durationMs.toFixed(2)}ms`);
 
     // Record p99 proxy metric
     if (Math.random() < 0.1) {
@@ -113,6 +112,8 @@ export function scrubPIIForSuperAdmin(req: Request, res: Response, next: NextFun
 }
 
 function deepScrub(obj: unknown, fields: string[]): unknown {
+  if (obj === null || obj === undefined) return obj;
+  if (obj instanceof Date) return obj;
   if (Array.isArray(obj)) return obj.map((item) => deepScrub(item, fields));
   if (obj && typeof obj === 'object') {
     const result: Record<string, unknown> = {};

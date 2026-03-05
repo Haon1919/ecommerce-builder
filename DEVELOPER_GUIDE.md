@@ -51,15 +51,18 @@ ecommerce-builder/
 │       └── src/
 │           ├── config.ts
 │           ├── db.ts
+│           ├── errors.ts       Custom error classes
 │           ├── index.ts        Express server entry point
-│           ├── middleware/     auth.ts, security.ts
-│           ├── routes/         One file per resource
-│           └── services/       encryption.ts, anomaly.ts, gemini.ts
+│           ├── middleware/     auth.ts, security.ts (+ co-located tests)
+│           ├── routes/         One file per resource (+ co-located tests)
+│           ├── services/       encryption, anomaly, gemini, cleanup, order, product
+│           └── utils/          logger.ts (winston)
 ├── infrastructure/
 │   ├── docker-compose.yml      Local dev stack
+│   ├── docker/                 Service Dockerfiles
 │   ├── scripts/                GCP bootstrap scripts
 │   └── terraform/              GCP infrastructure as code
-├── .github/workflows/          CI/CD pipelines
+├── .github/workflows/          CI/CD pipelines (test, deploy, deploy-pages)
 ├── .env.example
 └── package.json                Monorepo root (npm workspaces)
 ```
@@ -94,12 +97,15 @@ JWT_SECRET="<generate: openssl rand -base64 48>"
 ENCRYPTION_KEY="<generate: openssl rand -hex 16>"      # exactly 32 hex chars
 ENCRYPTION_IV_SECRET="<generate: openssl rand -hex 8>" # exactly 16 hex chars
 GEMINI_API_KEY=""                                       # leave blank to skip AI features
+REFRESH_TOKEN_SECRET="<generate: openssl rand -base64 48>" # optional in dev (has fallback)
 SUPER_ADMIN_EMAIL="admin@example.com"
 SUPER_ADMIN_PASSWORD="<choose a strong password>"
 DEMO_STORE_ADMIN_EMAIL="store@example.com"
 DEMO_STORE_ADMIN_PASSWORD="<choose a strong password>"
 NODE_ENV="development"
 LOG_LEVEL="debug"
+APP_LOGS_RETENTION_DAYS="30"                            # days before auto-deleting AppLog rows
+METRIC_SNAPSHOTS_RETENTION_DAYS="90"                    # days before auto-deleting MetricSnapshot rows
 ```
 
 > **`ENCRYPTION_KEY`** must be **exactly 32 characters**. Generate a safe one — never use a placeholder:
@@ -256,7 +262,7 @@ npx prisma migrate reset   # WIPE and re-run all migrations + seed (dev only)
 
 ## 7. API Routes Reference
 
-All routes are prefixed `/api`. Auth routes rate-limited to 20 requests / 15 min. All others 100 / min.
+All routes are prefixed `/api`. Auth routes are rate-limited to 10 **failed** attempts / 15 min (successful requests are not counted). All other endpoints are limited to 100 requests / min.
 
 | Method | Path | Auth | Description |
 |---|---|---|---|
@@ -493,19 +499,58 @@ npm test
 # Run API tests only
 npm test --workspace=services/api
 
+# E2E tests (Playwright)
+npm run test:ui
+
 # TypeScript type check all packages
 npm run build --workspaces --if-present
 ```
 
-The test suite is minimal by default — the project prioritizes type safety (strict TypeScript) over unit tests. The CI pipeline (`test.yml`) runs `tsc --noEmit` across all packages and does a full `npm run build` to catch compile errors before anything merges.
+The project has a growing test suite across multiple layers:
+
+| Layer | Files | What they cover |
+|---|---|---|
+| **Route tests** | `auth.routes.test.ts`, `products.test.ts`, `orders.test.ts`, `stores.test.ts`, `pages.routes.test.ts`, `messages.routes.test.ts`, `logs.routes.test.ts`, `tickets.routes.test.ts`, `chat.routes.test.ts`, `analytics.test.ts` | Request/response validation, auth checks, error states |
+| **Service tests** | `anomaly.test.ts`, `encryption.test.ts`, `order.service.test.ts`, `product.service.test.ts` | Business logic, KL divergence math, encryption round-trips |
+| **Middleware tests** | `auth.test.ts`, `security.test.ts` | JWT verification, PII scrubbing, rate limiting |
+| **E2E tests** | `tests/e2e/admin/`, `tests/e2e/store/`, `tests/e2e/super-admin/` | Full user flows via Playwright |
+
+The CI pipeline (`test.yml`) runs the unit/integration tests, `tsc --noEmit` across all packages, and a full `npm run build` to catch compile errors before anything merges.
 
 When writing new code:
 - Keep business logic in `services/` functions (not inline in route handlers) so it can be unit tested independently
-- The encryption, anomaly detection, and Gemini services are good examples of this pattern
+- Co-locate tests with their source files (e.g., `orders.ts` and `orders.test.ts` in the same directory)
+- The encryption, anomaly detection, and order/product services are good examples of this pattern
 
 ---
 
-## 15. Common Pitfalls
+## 15. Data Retention & Cleanup
+
+The API includes an automatic data cleanup service (`services/api/src/services/cleanup.ts`) that runs every 24 hours:
+
+- **AppLog**: rows older than `APP_LOGS_RETENTION_DAYS` (default: 30) are deleted
+- **MetricSnapshot**: rows older than `METRIC_SNAPSHOTS_RETENTION_DAYS` (default: 90) are deleted
+
+This prevents unbounded table growth. Adjust the retention periods via environment variables if you need longer audit trails.
+
+---
+
+## 16. Production Configuration Guards
+
+`config.ts` enforces several validations when `NODE_ENV=production`:
+
+| Guard | What it does |
+|---|---|
+| `JWT_SECRET` length | Must be ≥ 64 characters |
+| `REFRESH_TOKEN_SECRET` | Must be set (no dev fallback) |
+| `ENCRYPTION_KEY` entropy | Cannot be all-same-character (e.g., `aaaa...`) |
+| `ALLOWED_ORIGINS` | Cannot be empty, cannot contain `localhost`, `127.0.0.1`, or `*` |
+
+In non-production environments, the server logs warnings for obviously-weak keys but does not refuse to start.
+
+---
+
+## 17. Common Pitfalls
 
 **`ENCRYPTION_KEY must be 32 chars`** — If you see a crypto error on startup or get garbled data back from encrypted fields, check the length of your key. `echo -n "$ENCRYPTION_KEY" | wc -c` should print `32`.
 

@@ -175,6 +175,10 @@ Two workflows in `.github/workflows/`:
 - Docker build validation (no push)
 - `all-checks-pass` job acts as the branch protection gate
 
+### `deploy-pages.yml` — manual trigger (workflow_dispatch)
+
+Builds all three frontend apps as static exports and deploys them to **GitHub Pages** as a demo. Each app is served under a sub-path (`/store`, `/admin`, `/super-admin`). This is a lightweight way to share the UI without a backend.
+
 ### `deploy.yml` — runs on every push to `main`
 
 Job order:
@@ -263,6 +267,14 @@ gcloud logging metrics create anomaly-detections \
   --description="KL divergence anomalies" \
   --log-filter='resource.type="cloud_run_revision" jsonPayload.message=~"Anomaly detected"'
 ```
+
+### Data retention (automatic)
+
+The API runs an automatic cleanup job every 24 hours that deletes:
+- **AppLog** rows older than `APP_LOGS_RETENTION_DAYS` (default: 30 days)
+- **MetricSnapshot** rows older than `METRIC_SNAPSHOTS_RETENTION_DAYS` (default: 90 days)
+
+These are configured via environment variables. If you need longer retention for compliance or debugging, increase the values before they run.
 
 ---
 

@@ -30,19 +30,26 @@ ecommerce-builder/
 │   └── api/            # Express + Socket.IO backend (port 3001)
 │       ├── prisma/     # PostgreSQL schema, migrations, seed
 │       └── src/
-│           ├── middleware/   # Auth (JWT), security, PII scrubbing
-│           ├── routes/       # One file per resource
-│           └── services/     # encryption.ts, anomaly.ts, gemini.ts
+│           ├── errors.ts          # Custom error classes
+│           ├── middleware/        # Auth (JWT), security, PII scrubbing
+│           ├── routes/            # One file per resource (+ co-located tests)
+│           ├── services/          # encryption, anomaly, gemini, cleanup, order, product
+│           └── utils/             # Logger (winston)
 ├── infrastructure/
 │   ├── docker-compose.yml    # Local dev stack (Postgres)
+│   ├── docker/               # Service Dockerfiles
 │   ├── scripts/              # GCP bootstrap helpers
 │   └── terraform/            # Full GCP infrastructure as code
 ├── tests/
 │   ├── e2e/                  # Playwright end-to-end test suites
+│   │   ├── admin/            # Admin login, builder, A/B testing
+│   │   ├── store/            # Storefront checkout
+│   │   └── super-admin/      # Tenant management
 │   └── performance/          # k6 load test scenarios
 ├── .github/workflows/
 │   ├── test.yml              # CI — lint, unit tests, E2E on every PR
-│   └── deploy.yml            # CD — Docker build + Cloud Run deploy on merge to main
+│   ├── deploy.yml            # CD — Docker build + Cloud Run deploy on merge to main
+│   └── deploy-pages.yml      # Static export to GitHub Pages (manual trigger)
 └── scripts/
     └── security-audit.sh     # npm audit + dependency checks
 ```

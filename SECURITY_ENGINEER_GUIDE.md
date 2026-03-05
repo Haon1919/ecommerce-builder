@@ -21,7 +21,7 @@ This guide outlines the security architecture, data protection mechanisms, autho
   - Store Admin JWT payloads embed a `storeId` property alongside their user ID.
   - Super Admin JWTs lack a `storeId` but utilize a `type: 'SUPER_ADMIN'` flag.
 - **Multi-Tenancy Enforcement:** Multi-tenancy isolation is strictly enforced via route middleware. For any endpoint under `/api/stores/:storeId/*`, the `requireStoreAdmin` middleware asserts that the `req.user.storeId` strictly matches `req.params.storeId`. This prevents broken object-level authorization (BOLA/IDOR) between tenants.
-- **Rate Limiting:** Auth endpoints (`/api/auth/*`) are heavily rate-limited (20 requests / 15 min). All other API endpoints have a default limit of 100 requests / minute.
+- **Rate Limiting:** Auth endpoints (`/api/auth/*`) are rate-limited to 10 **failed** attempts per 15 minutes (successful requests are excluded from the count via `skipSuccessfulRequests`). All other API endpoints have a default limit of 100 requests per minute.
 
 ## 3. Data Protection Strategies
 
@@ -31,6 +31,13 @@ Customer PII (Emails, Names, Addresses, Phones) passing through the system is de
 - Columns tracking PII are suffixed with `Enc` (e.g., `customerEmailEnc`, `customerNameEnc`) to explicitly denote application-level encrypted fields.
 - Cloud SQL inherently provides infrastructure-level encryption (Google-managed keys), but double-encrypting sensitive columns shields them from read-only manual queries and unauthorized staff.
 
+### Data Retention
+The API automatically deletes old operational data to limit exposure surface:
+- **AppLog** rows older than `APP_LOGS_RETENTION_DAYS` (default: 30 days) are purged every 24 hours.
+- **MetricSnapshot** rows older than `METRIC_SNAPSHOTS_RETENTION_DAYS` (default: 90 days) are purged every 24 hours.
+
+Adjust retention periods via environment variables. Be aware that reducing retention limits the audit trail available for incident investigation.
+
 ### Implicit PII Scrubbing
 Super Admin interactions are intentionally blind to user PII. The global API middleware interceptor (`scrubPIIForSuperAdmin`) recursively strips any known PII fields (`customerEmailEnc`, `nameEnc`, `password`, etc.) and replaces them with `[REDACTED]` string values in responses aimed at Super Admins.
 
@@ -39,6 +46,15 @@ Super Admin interactions are intentionally blind to user PII. The global API mid
 - **Cloud Secret Manager:** Application secrets (database passwords, JWT signature keys, AES encryption keys) are completely decoupled from code, git histories, and plain `.env` variables in production. The API service reads them directly from Cloud Secret Manager at startup using API calls.
 - **Least Privilege Execution:** The Cloud Run process assumes the identity of a dedicated service account (`ecommerce-builder-app`), holding strict minimal permissions (e.g., `secretmanager.secretAccessor`, `cloudsql.client`).
 - **Secret Rotation Pipeline:** Operations documentation details rapid, zero-downtime procedures to rotate major platform secrets on a recurring basis. Wait times during deployment pipelines are negligible.
+
+### Production Startup Guards
+`config.ts` enforces hard-fail validations when `NODE_ENV=production`:
+- `JWT_SECRET` must be ≥ 64 characters.
+- `REFRESH_TOKEN_SECRET` must be explicitly set (no dev-only fallback).
+- `ENCRYPTION_KEY` must have sufficient entropy (rejects all-same-character keys).
+- `ALLOWED_ORIGINS` must be explicitly configured and cannot contain `localhost`, `127.0.0.1`, or `*`.
+
+In non-production environments, the server logs warnings for weak keys but does not refuse to start.
 
 ## 5. Threat Monitoring & Alerting
 
