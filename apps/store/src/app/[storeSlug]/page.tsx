@@ -46,7 +46,8 @@ export default async function StoreLanding({ params }: { params: Promise<{ store
     );
   }
 
-  let store: StoreInfo, page: { layout: PageComponent[] };
+  let store: StoreInfo = {} as StoreInfo;
+  let page: { layout: PageComponent[] } = { layout: [] };
   let activeExperiments = [];
   let products: any[] = [];
 
