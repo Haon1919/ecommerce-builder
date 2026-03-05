@@ -27,7 +27,7 @@ test.describe('Admin A/B Testing Flow', () => {
         await page.fill('input[type="email"]', 'admin@demo-store.com');
         await page.fill('input[type="password"]', 'Admin123!');
         await page.click('button[type="submit"]');
-        await expect(page).toHaveURL('/dashboard');
+        await expect(page).toHaveURL('/dashboard/');
     });
 
     test('should load experiments in the A/B testing dashboard', async ({ page }) => {
