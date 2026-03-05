@@ -1,60 +1,15 @@
-// notFound removed — we render a fallback when API is unreachable (static export)
 import { storeApi, productsApi, experimentsApi } from '@/lib/api';
 import { PageRenderer } from '@/components/PageRenderer';
 import type { StoreInfo, PageComponent } from '@/types';
 
+const isStaticExport = process.env.STATIC_EXPORT === 'true';
+
 export default async function StoreLanding({ params }: { params: Promise<{ storeSlug: string }> }) {
   const { storeSlug } = await params;
-  let store: StoreInfo | null = null;
-  let page: { layout: PageComponent[] } = { layout: [] };
-  let activeExperiments = [];
-  let products: any[] = [];
 
-  try {
-    [store, page] = await Promise.all([
-      storeApi.getBySlug(storeSlug),
-      storeApi.getPage((await storeApi.getBySlug(storeSlug)).id, ''),
-    ]);
-    // Fetch experiments independently so it doesn't fail the whole page if it errors
-    if (store) {
-      try {
-        activeExperiments = await experimentsApi.getActive(store.id);
-      } catch { }
-    }
-  } catch {
-    // API unavailable (e.g. static export for GitHub Pages) — render fallback
-  }
-
-  // A/B Testing: Override page layout if an active experiment targets this page
-  // The landing page logic assumes the 'landing' slug or empty string ''
-  const expMatch = activeExperiments.find((e: any) => e.name === '' || e.name === 'landing');
-  if (expMatch && expMatch.variants?.length) {
-    const roll = Math.random() * 100;
-    let curr = 0;
-    let chosenVar = expMatch.variants[0];
-    for (const v of expMatch.variants) {
-      curr += v.weight;
-      if (roll <= curr) {
-        chosenVar = v;
-        break;
-      }
-    }
-
-    if (chosenVar && Array.isArray(chosenVar.layout)) {
-      page.layout = chosenVar.layout;
-      experimentsApi.trackView(store!.id, expMatch.id, chosenVar.id).catch(() => { });
-    }
-  }
-
-  if (store) {
-    try {
-      const data = await productsApi.list(store.id, { limit: '50' });
-      products = data.products;
-    } catch { }
-  }
-
-  if (!store) {
-    // Static demo fallback when API is unavailable (GitHub Pages)
+  // During static export (GitHub Pages), skip all API calls entirely
+  // and render a static demo page instead
+  if (isStaticExport) {
     return (
       <div className="min-h-screen bg-white">
         <section className="relative py-24 px-8 text-center" style={{ backgroundColor: '#6366f1', color: '#ffffff' }}>
@@ -90,6 +45,47 @@ export default async function StoreLanding({ params }: { params: Promise<{ store
       </div>
     );
   }
+
+  let store: StoreInfo, page: { layout: PageComponent[] };
+  let activeExperiments = [];
+  let products: any[] = [];
+
+  try {
+    [store, page] = await Promise.all([
+      storeApi.getBySlug(storeSlug),
+      storeApi.getPage((await storeApi.getBySlug(storeSlug)).id, ''),
+    ]);
+    try {
+      activeExperiments = await experimentsApi.getActive(store.id);
+    } catch { }
+  } catch {
+    const { notFound } = await import('next/navigation');
+    notFound();
+  }
+
+  // A/B Testing
+  const expMatch = activeExperiments.find((e: any) => e.name === '' || e.name === 'landing');
+  if (expMatch && expMatch.variants?.length) {
+    const roll = Math.random() * 100;
+    let curr = 0;
+    let chosenVar = expMatch.variants[0];
+    for (const v of expMatch.variants) {
+      curr += v.weight;
+      if (roll <= curr) {
+        chosenVar = v;
+        break;
+      }
+    }
+    if (chosenVar && Array.isArray(chosenVar.layout)) {
+      page.layout = chosenVar.layout;
+      experimentsApi.trackView(store.id, expMatch.id, chosenVar.id).catch(() => { });
+    }
+  }
+
+  try {
+    const data = await productsApi.list(store.id, { limit: '50' });
+    products = data.products;
+  } catch { }
 
   return (
     <PageRenderer
