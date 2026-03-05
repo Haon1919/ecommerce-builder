@@ -1,11 +1,12 @@
-'use client';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-
 export default function StoreIndex() {
-    const router = useRouter();
-    useEffect(() => {
-        router.replace('/demo');
-    }, [router]);
-    return null;
+    return (
+        <html>
+            <head>
+                <meta httpEquiv="refresh" content="0;url=./demo" />
+            </head>
+            <body>
+                <p>Redirecting to storefront...</p>
+            </body>
+        </html>
+    );
 }
