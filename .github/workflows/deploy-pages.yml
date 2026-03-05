@@ -55,6 +55,7 @@ jobs:
           cp -r apps/store/out/* out/store/ || true
           cp -r apps/admin/out/* out/admin/ || true
           cp -r apps/super-admin/out/* out/super-admin/ || true
+          touch out/.nojekyll
           
           # Create a root index.html to navigate between them
           cat << 'EOF' > out/index.html
