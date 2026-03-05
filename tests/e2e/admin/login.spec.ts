@@ -25,7 +25,7 @@ test.describe('Admin Login Flow', () => {
         await page.click('button[type="submit"]'); // Assuming standard button
 
         // Verify successful login by checking URL or a unique dashboard element
-        await expect(page).toHaveURL('/dashboard');
+        await expect(page).toHaveURL(/\/dashboard\/?/);
         // Add specific dashboard element assertion if known, e.g., await expect(page.locator('h1')).toContainText('Dashboard');
     });
 

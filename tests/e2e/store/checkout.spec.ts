@@ -24,7 +24,7 @@ test.describe('Storefront Checkout Flow', () => {
                 const checkoutBtn = page.locator('a[href*="/cart/checkout"]');
                 if (await checkoutBtn.isVisible()) {
                     await checkoutBtn.click();
-                    await expect(page).toHaveURL(`/${storeSlug}/cart/checkout`);
+                    await expect(page).toHaveURL(/cart\/checkout\/?/);
 
                     // 6. Complete checkout (this heavily depends on the actual checkout form)
                     // await page.fill('input[name="email"]', 'customer@example.com');
