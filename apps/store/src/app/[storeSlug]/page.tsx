@@ -1,12 +1,14 @@
-import { notFound } from 'next/navigation';
+// notFound removed — we render a fallback when API is unreachable (static export)
 import { storeApi, productsApi, experimentsApi } from '@/lib/api';
 import { PageRenderer } from '@/components/PageRenderer';
 import type { StoreInfo, PageComponent } from '@/types';
 
 export default async function StoreLanding({ params }: { params: Promise<{ storeSlug: string }> }) {
   const { storeSlug } = await params;
-  let store: StoreInfo, page: { layout: PageComponent[] };
+  let store: StoreInfo | null = null;
+  let page: { layout: PageComponent[] } = { layout: [] };
   let activeExperiments = [];
+  let products: any[] = [];
 
   try {
     [store, page] = await Promise.all([
@@ -14,11 +16,13 @@ export default async function StoreLanding({ params }: { params: Promise<{ store
       storeApi.getPage((await storeApi.getBySlug(storeSlug)).id, ''),
     ]);
     // Fetch experiments independently so it doesn't fail the whole page if it errors
-    try {
-      activeExperiments = await experimentsApi.getActive(store.id);
-    } catch { }
+    if (store) {
+      try {
+        activeExperiments = await experimentsApi.getActive(store.id);
+      } catch { }
+    }
   } catch {
-    notFound();
+    // API unavailable (e.g. static export for GitHub Pages) — render fallback
   }
 
   // A/B Testing: Override page layout if an active experiment targets this page
@@ -38,15 +42,16 @@ export default async function StoreLanding({ params }: { params: Promise<{ store
 
     if (chosenVar && Array.isArray(chosenVar.layout)) {
       page.layout = chosenVar.layout;
-      experimentsApi.trackView(store.id, expMatch.id, chosenVar.id).catch(() => { });
+      experimentsApi.trackView(store!.id, expMatch.id, chosenVar.id).catch(() => { });
     }
   }
 
-  let products = [];
-  try {
-    const data = await productsApi.list(store.id, { limit: '50' });
-    products = data.products;
-  } catch { }
+  if (store) {
+    try {
+      const data = await productsApi.list(store.id, { limit: '50' });
+      products = data.products;
+    } catch { }
+  }
 
   return (
     <PageRenderer
