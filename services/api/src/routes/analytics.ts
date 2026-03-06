@@ -1,12 +1,13 @@
 import { Router, Request, Response } from 'express';
 import { prisma } from '../db';
-import { requireStoreAdmin, requireSuperAdmin } from '../middleware/auth';
+import { requireAuth, requireSuperAdmin } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
 import { getMetricHistory, getRecentAlerts } from '../services/anomaly';
 
 const router = Router();
 
 // GET /stores/:storeId/analytics/dashboard - admin analytics dashboard
-router.get('/:storeId/analytics/dashboard', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.get('/:storeId/analytics/dashboard', requirePermission('analytics:read'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const { days = '30' } = req.query;
   const fromDate = new Date(Date.now() - parseInt(days as string) * 86400 * 1000);

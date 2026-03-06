@@ -2,7 +2,8 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import crypto from 'crypto';
 import { prisma } from '../db';
-import { requireStoreAdmin, requireSuperAdmin } from '../middleware/auth';
+import { requireSuperAdmin } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
 import { encrypt, decrypt } from '../services/encryption';
 import { processAdminChat } from '../services/admin-gemini';
 
@@ -94,7 +95,7 @@ router.get('/slug/:slug', async (req: Request, res: Response): Promise<void> => 
 });
 
 // PUT /stores/:storeId - update store (admin)
-router.put('/:storeId', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.put('/:storeId', requirePermission('settings:write'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const parsed = storeSettingsSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -111,7 +112,7 @@ router.put('/:storeId', requireStoreAdmin, async (req: Request, res: Response): 
 });
 
 // PUT /stores/:storeId/settings - update store settings
-router.put('/:storeId/settings', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.put('/:storeId/settings', requirePermission('settings:write'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const parsed = storeSettingsExtSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -145,7 +146,7 @@ router.put('/:storeId/settings', requireStoreAdmin, async (req: Request, res: Re
 });
 
 // POST /stores/:storeId/admin-chat - admin chat with store context
-router.post('/:storeId/admin-chat', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/admin-chat', requirePermission('settings:read'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const { message, history = [] } = req.body;
 
@@ -209,7 +210,7 @@ router.patch('/:storeId/active', requireSuperAdmin, async (req: Request, res: Re
 // ==================== API KEYS (EDGE API) ====================
 
 // GET /stores/:storeId/api-keys - list api keys
-router.get('/:storeId/api-keys', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.get('/:storeId/api-keys', requirePermission('settings:read'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
 
   const keys = await prisma.apiKey.findMany({
@@ -228,7 +229,7 @@ router.get('/:storeId/api-keys', requireStoreAdmin, async (req: Request, res: Re
 });
 
 // POST /stores/:storeId/api-keys - generate a new api key
-router.post('/:storeId/api-keys', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/api-keys', requirePermission('settings:write'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const { name } = req.body;
 
@@ -261,7 +262,7 @@ router.post('/:storeId/api-keys', requireStoreAdmin, async (req: Request, res: R
 });
 
 // DELETE /stores/:storeId/api-keys/:id - revoke an api key
-router.delete('/:storeId/api-keys/:id', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.delete('/:storeId/api-keys/:id', requirePermission('settings:write'), async (req: Request, res: Response): Promise<void> => {
   const { storeId, id } = req.params as { storeId: string; id: string };
 
   try {

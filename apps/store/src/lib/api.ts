@@ -46,3 +46,13 @@ export const experimentsApi = {
   trackView: (storeId: string, experimentId: string, variantId: string) =>
     api.post(`/stores/${storeId}/experiments/${experimentId}/variants/${variantId}/view`).then((r) => r.data),
 };
+
+export const cartApi = {
+  calculate: (storeId: string, items: { productId: string; quantity: number }[], userTags?: string[], providedCodes?: string[]) =>
+    api.post(`/stores/${storeId}/cart/calculate`, { items, userTags, providedCodes }).then((r) => r.data),
+};
+
+export const checkoutApi = {
+  getShippingRates: (storeId: string, items: { productId: string; quantity: number }[], address: any) =>
+    api.post('/checkout/shipping-rates', { storeId, items, address }).then((r) => r.data),
+};

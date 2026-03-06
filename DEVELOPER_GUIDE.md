@@ -328,30 +328,55 @@ All routes are prefixed `/api`. Auth routes are rate-limited to 10 **failed** at
 JWT tokens are issued by `POST /api/auth/login`. The payload shape differs by role:
 
 ```typescript
-// Store admin
-{ type: 'USER', userId: string, storeId: string, role: 'OWNER' | 'ADMIN' | 'VIEWER' }
+// Store staff/admin
+{ type: 'USER', sub: string, storeId: string, role: string (roleId) }
 
 // Super admin
-{ type: 'SUPER_ADMIN', adminId: string }
+{ type: 'SUPER_ADMIN', sub: string }
 ```
 
 **Middleware chain for a typical store admin request:**
 
 1. `requireAuth` — verifies the JWT, attaches the decoded payload to `req.user`
-2. `requireStoreAdmin` — checks `req.params.storeId === req.user.storeId`. Returns 403 if they don't match. This prevents store A's admin from accessing store B's data even with a valid token.
+2. `requirePermission('resource:action')` — verifies that:
+   - `req.params.storeId === req.user.storeId` (Multi-tenant isolation)
+   - The user's role has a permission matching the requested action (RBAC)
 
 **Adding a new protected route:**
 
 ```typescript
-// For store admins only
-router.get('/:storeId/widgets', requireAuth, requireStoreAdmin, async (req, res) => { ... });
+// For store admins with 'settings:write' permission
+router.put('/:storeId/settings', requirePermission('settings:write'), async (req, res) => { ... });
 
 // For super admin only
-router.get('/platform/widgets', requireAuth, requireSuperAdmin, async (req, res) => { ... });
-
-// For either, as long as they have access to the store
-router.get('/:storeId/widgets', requireAuth, requireAdminOrSuperAdmin, async (req, res) => { ... });
+router.get('/platform/analytics', requireSuperAdmin, async (req, res) => { ... });
 ```
+
+The `requirePermission` middleware handles both the store-id isolation and the granular permission check in a single call. Use it for all store-scoped API endpoints.
+
+---
+
+## 20. Roles & Permissions Management (RBAC)
+
+The platform uses a dynamic **Granular RBAC** system. Roles are store-scoped, and permissions are defined as wildcard-supported strings (e.g., `products:*`, `orders:read`).
+
+### Managing Roles (Admin UI)
+Store owners can manage staff access in **Settings > Roles & Permissions**.
+- **Static Roles**: Default roles like `Owner`, `Product Manager`, and `Support` are created automatically upon store registration and cannot be modified/deleted.
+- **Custom Roles**: Store owners can create custom roles with specific combinations of permissions.
+- **Staff Assignment**: Staff members (Users) are assigned exactly one Role. Their effective permissions are the union of all actions allowed by that role.
+
+### Permission Syntax
+Permissions use a `resource:action` format:
+- `*:*` — Full administrative access.
+- `products:*` — All actions on products (read/write/delete).
+- `orders:read` — View-only access to orders.
+
+### Adding a New Permission
+1. Add the permission string to `AVAILABLE_PERMISSIONS` in `services/api/src/services/roles.service.ts`.
+2. Apply the `requirePermission('your:perm')` middleware to the relevant routes.
+3. Update the UI in `apps/admin/src/app/(dashboard)/settings/roles/page.tsx` to include the new resource/action if needed.
+
 
 ---
 
@@ -583,6 +608,7 @@ In non-production environments, the server logs warnings for obviously-weak keys
 ---
 
 ## 18. Headless Edge API
+19. Promotions & Rule-Based Discounts
 
 The Headless Edge API (`/api/edge/*`) provides high-performance, stateless endpoints designed for custom storefronts, mobile apps, or any decoupled client. Access requires an API Key, which can be generated in the Store Admin Panel (requires **GROWTH** tier or higher).
 
@@ -596,3 +622,73 @@ Authorization: Bearer edge_live_...
 - `GET /api/edge/products` — List catalog products (supports `search`, `category`, `limit`, `offset`, `sort`)
 - `GET /api/edge/products/:productId` — Get a single product by ID
 - `POST /api/edge/checkout` — Create a stateless order (checkout)
+- `POST /api/edge/cart/calculate` — Calculate cart totals with real-time discounts (including applied coupons)
+
+---
+
+## 19. Promotions & Rule-Based Discounts
+
+The promotion system (`services/api/src/services/discount.ts`) decoupling complex marketing logic from order processing.
+
+### Data Model
+- **`DiscountRule`**: Defines the "Action" (Percentage, Fixed, BOGO) and metadata (priority, combinable, code).
+- **`DiscountCondition`**: Defines the "IF" required to trigger the rule (Minimum Cart Value, etc).
+
+### Visual Builder State
+The builder in `apps/admin/src/components/offers/PromotionBuilder.tsx` manages a recursive JSON-serializable rule set.
+
+### Example: BOGO Logic
+A "Buy 2 Get 1 Free" rule stores:
+- `type: 'BUY_X_GET_Y'`
+- `buyQuantity: 2`, `getQuantity: 1`
+- `buyProductId`, `getProductId`: Product identifiers.
+
+---
+
+## 21. Shipping Service & Dimensional Constraints
+
+The shipping service (`services/api/src/services/shipping.ts`) handles rate calculation for external carriers using a unified interface.
+
+### Package Dimensions
+The `Product` model includes volumetric constraints:
+- `length`: Package length (cm)
+- `width`: Package width (cm)
+- `height`: Package height (cm)
+- `weight`: Package physical weight (kg)
+
+### Volumetric Weight Calculator
+Carriers charge based on the **Chargeable Weight**, which is the greater of the actual weight and the **Volumetric Weight**.
+
+```typescript
+Volumetric Weight (kg) = (Length * Width * Height) / 5000
+```
+
+### Carrier Integrations
+The service currently uses mocked integrations for:
+- **UPS**: Base rate $12.00 + weight multiplier
+- **FedEx**: Base rate $14.50 + weight multiplier
+- **USPS**: Base rate $8.75 + weight multiplier
+
+Use `shippingService.getAllRates(request)` to fetch and aggregate rates from all active carriers, sorted by price.
+ 
+---
+
+## 22. Multi-Location Inventory & Fulfillment
+
+The inventory system supports tracking stock across multiple physical locations (warehouses, stores, etc.).
+
+### Inventory Models
+- **`Location`**: A physical site with a `priority` (Int). Higher values indicate higher fulfillment priority.
+- **`Stock`**: The quantity of a specific `Product` at a specific `Location`.
+
+### Order Fulfillment Logic
+When an order is placed, the `OrderService` determines the optimal fulfillment plan using a priority-based algorithm:
+1. **Priority-Based Selection**: Active locations are sorted by `priority` (descending).
+2. **Availability Check**: The system iterates through the sorted locations to find available stock for each requested product.
+3. **Split-Fulfillment**: If a product's requested quantity cannot be satisfied by a single location, the system splits the fulfillment across multiple locations, creating individual `OrderItem` records for each location split.
+4. **Atomic Transactions**: Stock deduction from multiple `Stock` records, updates to the `Product` summary stock, and order/sub-order creation are all wrapped in a single database transaction to ensure consistency.
+
+### API & Persistence
+- **`OrderItem` Tracking**: Each `OrderItem` includes a `locationId` field, identifying which physical location fulfilled that specific item segment.
+- **Stock Summary**: The `Product.stock` field is maintained as a redundant summary for performance in catalog queries, kept in sync with the sum of location-specific stocks during order processing.
+```

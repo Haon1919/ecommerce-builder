@@ -152,14 +152,14 @@ async function main() {
                         aboutText: storeConfig.aboutText,
                     },
                 },
-                users: {
-                    create: {
-                        email: demoAdminEmail!,
-                        password: await bcrypt.hash(demoAdminPassword!, 12),
-                        name: `${storeConfig.name} Admin`,
-                        role: 'OWNER',
-                    },
+                roles: {
+                    create: [
+                        { name: 'Owner', description: 'Full access to all store resources', isStatic: true, permissions: { create: [{ action: '*:*' }] } },
+                        { name: 'Product Manager', description: 'Can manage products and inventory', isStatic: true, permissions: { create: [{ action: 'products:*' }] } },
+                        { name: 'Support', description: 'Can view orders and manage support tickets', isStatic: true, permissions: { create: [{ action: 'tickets:*' }, { action: 'orders:read' }] } }
+                    ]
                 },
+
                 pages: {
                     createMany: {
                         data: [
@@ -193,6 +193,23 @@ async function main() {
             },
         });
         console.log(`Created store: ${activeStore.slug}`);
+
+        // Fetch the Owner role
+        const ownerRole = await prisma.role.findFirst({
+            where: { storeId: activeStore.id, name: 'Owner' }
+        });
+
+        if (ownerRole) {
+            await prisma.user.create({
+                data: {
+                    email: demoAdminEmail!,
+                    password: await bcrypt.hash(demoAdminPassword!, 12),
+                    name: `${storeConfig.name} Admin`,
+                    storeId: activeStore.id,
+                    roleId: ownerRole.id
+                }
+            });
+        }
     } else {
         console.log(`Store ${activeStore.slug} already exists; skipping store creation.`);
     }

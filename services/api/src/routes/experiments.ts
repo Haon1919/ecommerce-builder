@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { requireStoreAdmin, optionalAuth } from '../middleware/auth';
+import { requireAuth, optionalAuth } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
 import { recordMetric } from '../services/anomaly';
 
 const router = Router();
@@ -56,7 +57,7 @@ router.post('/:storeId/experiments/:experimentId/variants/:variantId/view', opti
 });
 
 // GET /stores/:storeId/experiments - list all experiments (admin)
-router.get('/:storeId/experiments', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.get('/:storeId/experiments', requirePermission('pages:read'), async (req: Request, res: Response): Promise<void> => {
     const storeId = req.params.storeId as string;
 
     const experiments = await prisma.experiment.findMany({
@@ -69,7 +70,7 @@ router.get('/:storeId/experiments', requireStoreAdmin, async (req: Request, res:
 });
 
 // GET /stores/:storeId/experiments/:experimentId - get single experiment
-router.get('/:storeId/experiments/:experimentId', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.get('/:storeId/experiments/:experimentId', requirePermission('pages:read'), async (req: Request, res: Response): Promise<void> => {
     const storeId = req.params.storeId as string;
     const experimentId = req.params.experimentId as string;
 
@@ -87,7 +88,7 @@ router.get('/:storeId/experiments/:experimentId', requireStoreAdmin, async (req:
 });
 
 // POST /stores/:storeId/experiments - create experiment
-router.post('/:storeId/experiments', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/experiments', requirePermission('pages:write'), async (req: Request, res: Response): Promise<void> => {
     const storeId = req.params.storeId as string;
     const parsed = experimentSchema.safeParse(req.body);
 
@@ -118,7 +119,7 @@ router.post('/:storeId/experiments', requireStoreAdmin, async (req: Request, res
 });
 
 // PUT /stores/:storeId/experiments/:experimentId - update experiment
-router.put('/:storeId/experiments/:experimentId', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.put('/:storeId/experiments/:experimentId', requirePermission('pages:write'), async (req: Request, res: Response): Promise<void> => {
     const storeId = req.params.storeId as string;
     const experimentId = req.params.experimentId as string;
     const parsed = experimentSchema.safeParse(req.body);
@@ -179,7 +180,7 @@ router.put('/:storeId/experiments/:experimentId', requireStoreAdmin, async (req:
 });
 
 // DELETE /stores/:storeId/experiments/:experimentId
-router.delete('/:storeId/experiments/:experimentId', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.delete('/:storeId/experiments/:experimentId', requirePermission('pages:write'), async (req: Request, res: Response): Promise<void> => {
     const storeId = req.params.storeId as string;
     const experimentId = req.params.experimentId as string;
 

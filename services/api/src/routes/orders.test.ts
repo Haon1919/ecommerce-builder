@@ -19,9 +19,32 @@ jest.mock('../middleware/auth', () => ({
   optionalAuth: (req: any, res: any, next: any) => next(),
 }));
 
+jest.mock('../middleware/auth.permission', () => ({
+  requirePermission: () => (req: any, res: any, next: any) => {
+    req.user = req.user || { sub: 'admin-1', type: 'USER', storeId: 'cl-store-123' };
+    next();
+  },
+}));
+
+jest.mock('../services/discount', () => ({
+  discountService: {
+    calculateBestDiscounts: jest.fn().mockResolvedValue([]),
+  },
+}));
+
 jest.mock('../services/encryption');
 jest.mock('../services/anomaly');
-jest.mock('../utils/logger');
+jest.mock('../utils/logger', () => ({
+  logger: {
+    error: console.error,
+    info: console.log,
+  }
+}));
+jest.mock('../services/tax', () => ({
+  taxService: {
+    calculateTax: jest.fn().mockResolvedValue({ amount: 2 }),
+  },
+}));
 
 jest.mock('../config', () => ({
   config: {
@@ -67,8 +90,12 @@ describe('Order Routes', () => {
     it('should create an order with valid data', async () => {
       // Setup mocks
       mockedPrisma.product.findMany.mockResolvedValue([sampleProduct] as any);
+      (mockedPrisma as any).location.findMany.mockResolvedValue([{ id: 'loc-1', stocks: [{ quantity: 100 }] }] as any);
       mockedPrisma.storeSettings.findUnique.mockResolvedValue({ taxRate: 10, flatShippingRate: 5 } as any);
       mockedPrisma.order.count.mockResolvedValue(98);
+      mockedPrisma.$transaction.mockImplementation(async (callback: any) => {
+        return callback(mockedPrisma);
+      });
       const createdOrder = {
         id: 'order-1',
         orderNumber: 'ORD-2024-00099',
@@ -108,6 +135,7 @@ describe('Order Routes', () => {
     it('should return 400 for insufficient stock', async () => {
       const lowStockProduct = { ...sampleProduct, stock: 1 };
       mockedPrisma.product.findMany.mockResolvedValue([lowStockProduct] as any);
+      (mockedPrisma as any).location.findMany.mockResolvedValue([{ id: 'loc-1', stocks: [{ quantity: 0 }] }] as any);
       const res = await request(app).post('/').send(sampleOrderData);
       expect(res.status).toBe(400);
       expect(res.body.error).toContain('Insufficient stock');

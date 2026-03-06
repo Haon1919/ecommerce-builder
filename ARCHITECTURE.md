@@ -83,37 +83,40 @@ The platform uses a **Logical Separation (Row-Level)** multi-tenancy model withi
 
 ## 3. Subsystem Workflows
 
-### 3.1. Authentication and Multi-Tenancy Flow
+### 3.1. Authentication and Multi-Tenancy Flow (Granular RBAC)
 
-The diagram below illustrates how a Store Admin accesses their specific store, ensuring they cannot read data from other tenants.
+The platform evaluates permissions using dynamic Role-Based Access Control (RBAC). A user belongs to a `Store` and is assigned a `Role`. That Role contains a collection of `Permission` strings (e.g. `order:*`, `settings:read`).
 
 ```mermaid
 sequenceDiagram
     actor Admin as Store Admin
     participant App as Store Admin App
-    participant Middleware as API Auth Middleware
-    participant Route as API Route Handler
+    participant Middleware as API Permission Middleware
+    participant Roles as Roles Service
     participant DB as Database
 
     Admin->>App: Submits login credentials
-    App->>Middleware: POST /api/auth/login
-    Middleware->>DB: Validate user & password
-    DB-->>Middleware: User record (includes storeId)
-    Middleware-->>App: Returns JWT Payload { userId, storeId, role: 'ADMIN' }
+    App->>API: POST /api/auth/login
+    API->>DB: Validate user & password
+    DB-->>API: User record (includes storeId and roleId)
+    API-->>App: Returns JWT Payload { userId, storeId, roleId }
     
     note over Admin,DB: Subsequent Request
     
     Admin->>App: Views Orders (Store A)
     App->>Middleware: GET /api/stores/{Store_A}/orders + Header: Bearer {JWT}
     Middleware->>Middleware: verify(JWT) -> extracts storeId (Store A)
-    Middleware->>Middleware: requireStoreAdmin() -> matches JWT storeId with URL param
+    Middleware->>Roles: hasPermission(userId, 'orders:read')
+    Roles->>DB: Fetch User -> Role -> Permissions
+    DB-->>Roles: Granted: ['orders:*', 'products:read']
+    Roles-->>Middleware: True (Wildcard Match)
     
-    alt StoreId Matches
+    alt StoreId Matches & Permission Granted
         Middleware->>Route: Next()
         Route->>DB: Prisma.Order.findMany({ where: { storeId: 'Store A' } })
         DB-->>Route: Order Data
         Route-->>App: 200 OK + Data
-    else StoreId Mismatch (Malicious attempt for Store B)
+    else StoreId Mismatch / Permission Denied (Malicious attempt)
         Middleware-->>App: 403 Forbidden 
     end
 ```

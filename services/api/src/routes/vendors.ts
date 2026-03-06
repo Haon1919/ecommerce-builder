@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { requireStoreAdmin } from '../middleware/auth';
+import { requireAuth } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
 import { requireTier, SubscriptionTier } from '../middleware/tier';
 import { logger } from '../utils/logger';
 import { encrypt, decrypt } from '../services/encryption';
@@ -9,7 +10,7 @@ import { encrypt, decrypt } from '../services/encryption';
 const router = Router();
 
 // Only ENTERPRISE stores can access the Vendor APIs
-router.use(requireStoreAdmin);
+router.use(requirePermission('vendors:read'));
 router.use(requireTier(SubscriptionTier.ENTERPRISE));
 
 const vendorSchema = z.object({
@@ -51,7 +52,7 @@ router.get('/:storeId/vendors', async (req: Request, res: Response): Promise<voi
 });
 
 // POST /stores/:storeId/vendors
-router.post('/:storeId/vendors', async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/vendors', requirePermission('vendors:write'), async (req: Request, res: Response): Promise<void> => {
     try {
         const storeId = req.params.storeId as string;
         const parsed = vendorSchema.safeParse(req.body);
@@ -99,7 +100,7 @@ router.get('/:storeId/vendors/:vendorId', async (req: Request, res: Response): P
 });
 
 // PATCH /stores/:storeId/vendors/:vendorId
-router.put('/:storeId/vendors/:vendorId', async (req: Request, res: Response): Promise<void> => {
+router.put('/:storeId/vendors/:vendorId', requirePermission('vendors:write'), async (req: Request, res: Response): Promise<void> => {
     try {
         const storeId = req.params.storeId as string;
         const vendorId = req.params.vendorId as string;

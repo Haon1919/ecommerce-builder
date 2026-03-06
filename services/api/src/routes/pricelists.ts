@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { requireStoreAdmin } from '../middleware/auth';
+import { requireAuth } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -13,7 +14,7 @@ const priceListSchema = z.object({
 });
 
 // GET /stores/:storeId/pricelists
-router.get('/:storeId/pricelists', requireStoreAdmin, async (req: Request, res: Response) => {
+router.get('/:storeId/pricelists', requirePermission('b2b:read'), async (req: Request, res: Response) => {
     try {
         const lists = await prisma.priceList.findMany({
             where: { storeId: req.params.storeId as string },
@@ -26,7 +27,7 @@ router.get('/:storeId/pricelists', requireStoreAdmin, async (req: Request, res: 
 });
 
 // GET /stores/:storeId/pricelists/:id
-router.get('/:storeId/pricelists/:id', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.get('/:storeId/pricelists/:id', requirePermission('b2b:read'), async (req: Request, res: Response): Promise<void> => {
     try {
         const list = await prisma.priceList.findFirst({
             where: { id: req.params.id as string, storeId: req.params.storeId as string },
@@ -42,7 +43,7 @@ router.get('/:storeId/pricelists/:id', requireStoreAdmin, async (req: Request, r
 });
 
 // POST /stores/:storeId/pricelists
-router.post('/:storeId/pricelists', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/pricelists', requirePermission('b2b:write'), async (req: Request, res: Response): Promise<void> => {
     const parsed = priceListSchema.safeParse(req.body);
     if (!parsed.success) {
         res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
@@ -65,7 +66,7 @@ router.post('/:storeId/pricelists', requireStoreAdmin, async (req: Request, res:
 });
 
 // PUT /stores/:storeId/pricelists/:id
-router.put('/:storeId/pricelists/:id', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.put('/:storeId/pricelists/:id', requirePermission('b2b:write'), async (req: Request, res: Response): Promise<void> => {
     const parsed = priceListSchema.partial().safeParse(req.body);
     if (!parsed.success) {
         res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
@@ -92,7 +93,7 @@ router.put('/:storeId/pricelists/:id', requireStoreAdmin, async (req: Request, r
 });
 
 // DELETE /stores/:storeId/pricelists/:id
-router.delete('/:storeId/pricelists/:id', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.delete('/:storeId/pricelists/:id', requirePermission('b2b:write'), async (req: Request, res: Response): Promise<void> => {
     try {
         const existing = await prisma.priceList.findFirst({
             where: { id: req.params.id as string, storeId: req.params.storeId as string }

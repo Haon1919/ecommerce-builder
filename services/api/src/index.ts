@@ -32,6 +32,9 @@ import pricelistsRouter from './routes/pricelists';
 import vendorsRouter from './routes/vendors';
 import liveCommerceRouter from './routes/live-commerce';
 import edgeRouter from './routes/edge';
+import discountsRouter from './routes/discounts';
+import checkoutRouter from './routes/checkout';
+import rolesRouter from './routes/roles';
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -149,10 +152,13 @@ app.use('/api/stores', companiesRouter);
 app.use('/api/stores', pricelistsRouter);
 app.use('/api/stores', vendorsRouter);
 app.use('/api/stores', liveCommerceRouter);
+app.use('/api/stores', discountsRouter);
+app.use('/api/stores', rolesRouter);
 app.use('/api/tickets', ticketsRouter);      // Super admin ticket access
 app.use('/api/analytics', analyticsRouter);  // Super admin analytics
 app.use('/api/logs', logsRouter);
 app.use('/api/edge', edgeRouter);
+app.use('/api/checkout', checkoutRouter);
 
 // Health check
 app.get('/health', (_, res) => {

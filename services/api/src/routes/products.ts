@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
-import { requireStoreAdmin, optionalAuth } from '../middleware/auth';
+import { requireAuth, optionalAuth } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
 import { ProductService } from '../services/product.service';
 import { logger } from '../utils/logger';
 import { NotFoundError } from '../errors';
@@ -104,7 +105,7 @@ router.get('/:storeId/products/:productId', optionalAuth, async (req: Request, r
 });
 
 // POST /stores/:storeId/products - admin create product
-router.post('/:storeId/products', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/products', requirePermission('products:write'), async (req: Request, res: Response): Promise<void> => {
   const { storeId } = req.params as { storeId: string };
 
   const parsed = productSchema.safeParse(req.body);
@@ -123,7 +124,7 @@ router.post('/:storeId/products', requireStoreAdmin, async (req: Request, res: R
 });
 
 // PUT /stores/:storeId/products/:productId - admin update product
-router.put('/:storeId/products/:productId', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.put('/:storeId/products/:productId', requirePermission('products:write'), async (req: Request, res: Response): Promise<void> => {
   const { storeId, productId } = req.params as { storeId: string, productId: string };
 
   const parsed = productSchema.partial().safeParse(req.body);
@@ -146,7 +147,7 @@ router.put('/:storeId/products/:productId', requireStoreAdmin, async (req: Reque
 });
 
 // DELETE /stores/:storeId/products/:productId
-router.delete('/:storeId/products/:productId', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.delete('/:storeId/products/:productId', requirePermission('products:write'), async (req: Request, res: Response): Promise<void> => {
   const { storeId, productId } = req.params as { storeId: string, productId: string };
 
   try {
@@ -163,7 +164,7 @@ router.delete('/:storeId/products/:productId', requireStoreAdmin, async (req: Re
 });
 
 // POST /stores/:storeId/products/:productId/generate-3d
-router.post('/:storeId/products/:productId/generate-3d', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/products/:productId/generate-3d', requirePermission('products:write'), async (req: Request, res: Response): Promise<void> => {
   const { storeId, productId } = req.params as { storeId: string, productId: string };
 
   try {
@@ -183,7 +184,7 @@ router.post('/:storeId/products/:productId/generate-3d', requireStoreAdmin, asyn
 });
 
 // POST /stores/:storeId/products/bulk-import - CSV/JSON bulk import
-router.post('/:storeId/products/bulk-import', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/products/bulk-import', requirePermission('products:write'), async (req: Request, res: Response): Promise<void> => {
   const { storeId } = req.params as { storeId: string };
   const { products } = req.body as { products: unknown[] };
 

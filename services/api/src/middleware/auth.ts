@@ -7,7 +7,7 @@ import { logger } from '../utils/logger';
 export interface JwtPayload {
   sub: string;           // user id or super admin id
   email: string;
-  role: string;          // UserRole or 'SUPER_ADMIN'
+  role: string;          // roleId for store users, or 'SUPER_ADMIN'
   storeId?: string;      // undefined for super admins
   type: 'USER' | 'SUPER_ADMIN';
 }
@@ -117,7 +117,7 @@ export function requireAdminOrSuperAdmin(req: Request, res: Response, next: Next
             meta: { adminId: user.sub, method: req.method, path: req.path },
           },
         })
-        .catch(() => {});
+        .catch(() => { });
       next();
       return;
     }

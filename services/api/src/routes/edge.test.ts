@@ -1,7 +1,7 @@
 import express from 'express';
 import request from 'supertest';
 import { DeepMockProxy, mockDeep } from 'jest-mock-extended';
-import { PrismaClient, ApiKey } from '@prisma/client';
+import { PrismaClient, Prisma } from '@prisma/client';
 import edgeRouter from './edge';
 import { prisma } from '../db';
 import { ProductService } from '../services/product.service';
@@ -15,6 +15,12 @@ jest.mock('../db', () => ({
         apiKey: {
             findUnique: jest.fn(),
             update: jest.fn(),
+        },
+        product: {
+            findMany: jest.fn(),
+        },
+        storeSettings: {
+            findUnique: jest.fn(),
         },
     },
 }));
@@ -186,6 +192,64 @@ describe('Edge API Routes', () => {
             const res = await request(app).post('/checkout').send({ customerEmail: 'not-an-email' });
             expect(res.status).toBe(401);
             expect(res.body.error).toBe('API Key required');
+        });
+    });
+
+    describe('POST /cart/calculate', () => {
+        it('should return correct totals with applied discounts', async () => {
+            mockedPrisma.apiKey.findUnique.mockResolvedValueOnce({ storeId, store: { active: true } } as any);
+            mockedPrisma.apiKey.update.mockResolvedValueOnce({} as any);
+
+            mockedPrisma.product.findMany.mockResolvedValueOnce([
+                { id: 'p1', price: new Prisma.Decimal(100) },
+                { id: 'p2', price: new Prisma.Decimal(50) }
+            ] as any);
+
+            mockedPrisma.storeSettings.findUnique.mockResolvedValueOnce({
+                taxRate: 10,
+                flatShippingRate: 15,
+                freeShippingAbove: 500
+            } as any);
+
+            // Mock discountService to return a discount
+            const { discountService } = require('../services/discount');
+            jest.spyOn(discountService, 'calculateBestDiscounts').mockResolvedValueOnce([
+                { ruleId: 'rule-1', code: 'SAVE10', amount: 15, description: '10% off' }
+            ]);
+
+            const payload = {
+                items: [
+                    { productId: 'p1', quantity: 1 },
+                    { productId: 'p2', quantity: 1 }
+                ]
+            };
+
+            const res = await request(app)
+                .post('/cart/calculate')
+                .set('Authorization', `Bearer ${validKey}`)
+                .send(payload);
+
+            expect(res.status).toBe(200);
+            expect(res.body.subtotal).toBe(150);
+            expect(res.body.totalDiscount).toBe(15);
+            expect(res.body.discountedSubtotal).toBe(135);
+            expect(res.body.tax).toBe(13.5);
+            expect(res.body.shipping).toBe(15);
+            expect(res.body.total).toBe(163.5);
+            expect(res.body.appliedDiscounts[0].code).toBe('SAVE10');
+        });
+
+        it('should reject invalid cart payloads', async () => {
+            mockedPrisma.apiKey.findUnique.mockResolvedValueOnce({ storeId, store: { active: true } } as any);
+            mockedPrisma.apiKey.update.mockResolvedValueOnce({} as any);
+
+            const res = await request(app)
+                .post('/cart/calculate')
+                .set('Authorization', `Bearer ${validKey}`)
+                .send({ items: 'not-an-array' });
+
+            expect(res.status).toBe(400);
+            expect(res.body.error).toBe('Invalid input');
         });
     });
 });

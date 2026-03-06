@@ -14,12 +14,18 @@ jest.mock('../db', () => ({
 }));
 jest.mock('../services/encryption');
 jest.mock('../middleware/auth');
+jest.mock('../middleware/auth.permission', () => ({
+  requirePermission: () => (req: any, res: any, next: any) => {
+    req.user = req.user || { sub: 'user-123', type: 'USER', storeId: 'cl-store-123' };
+    next();
+  },
+}));
 jest.mock('../utils/logger');
 jest.mock('../config', () => ({
-    config: {
-        logging: { level: 'info' },
-        encryption: { key: 'a-super-secret-key-for-testing-purposes' },
-    }
+  config: {
+    logging: { level: 'info' },
+    encryption: { key: 'a-super-secret-key-for-testing-purposes' },
+  }
 }));
 
 // --- Test Setup ---
@@ -27,9 +33,9 @@ const app = express();
 app.use(express.json());
 const mockedAuth = AuthMiddleware as jest.Mocked<typeof AuthMiddleware>;
 mockedAuth.requireStoreAdmin.mockImplementation((req: any, res: any, next: any) => {
-    // Attach a mock user for the reply endpoint
-    req.user = { sub: 'user-123' };
-    next();
+  // Attach a mock user for the reply endpoint
+  req.user = { sub: 'user-123' };
+  next();
 });
 app.use('/', messagesRouter);
 
@@ -63,9 +69,9 @@ describe('Messages Routes', () => {
     });
 
     it('should return 404 if store not found', async () => {
-        mockedPrisma.store.findUnique.mockResolvedValue(null);
-        const res = await request(app).post(`/${storeId}/messages`).send(messageData);
-        expect(res.status).toBe(404);
+      mockedPrisma.store.findUnique.mockResolvedValue(null);
+      const res = await request(app).post(`/${storeId}/messages`).send(messageData);
+      expect(res.status).toBe(404);
     });
   });
 
@@ -89,7 +95,7 @@ describe('Messages Routes', () => {
   describe('GET /:storeId/messages/:messageId', () => {
     it('should return a single message and mark it as read', async () => {
       mockedPrisma.contactMessage.findFirst.mockResolvedValue(sampleMessage as any);
-      
+
       const res = await request(app).get(`/${storeId}/messages/msg-1`);
 
       expect(res.status).toBe(200);

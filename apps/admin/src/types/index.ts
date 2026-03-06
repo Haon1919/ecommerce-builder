@@ -30,7 +30,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
-  role: 'OWNER' | 'ADMIN' | 'VIEWER';
+  role: string;
   storeId?: string;
   store?: Store;
 }
@@ -208,4 +208,34 @@ export interface Company {
   creditLimit: number;
   priceListId?: string | null;
   priceList?: PriceList | null;
+}
+
+// ==================== RBAC ====================
+
+export interface Permission {
+  id: string;
+  action: string;
+}
+
+export interface Role {
+  id: string;
+  name: string;
+  description?: string;
+  isStatic: boolean;
+  permissions: Permission[];
+  _count?: {
+    users: number;
+  };
+}
+
+export interface StaffMember {
+  id: string;
+  email: string;
+  name: string;
+  active: boolean;
+  lastLoginAt?: string;
+  role: {
+    id: string;
+    name: string;
+  };
 }

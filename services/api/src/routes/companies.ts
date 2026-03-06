@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { requireStoreAdmin } from '../middleware/auth';
+import { requireAuth } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
 import { logger } from '../utils/logger';
 
 const router = Router();
@@ -14,7 +15,7 @@ const companySchema = z.object({
 });
 
 // GET /stores/:storeId/companies
-router.get('/:storeId/companies', requireStoreAdmin, async (req: Request, res: Response) => {
+router.get('/:storeId/companies', requirePermission('b2b:read'), async (req: Request, res: Response) => {
     try {
         const companies = await prisma.company.findMany({
             where: { storeId: req.params.storeId as string },
@@ -28,7 +29,7 @@ router.get('/:storeId/companies', requireStoreAdmin, async (req: Request, res: R
 });
 
 // POST /stores/:storeId/companies
-router.post('/:storeId/companies', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/companies', requirePermission('b2b:write'), async (req: Request, res: Response): Promise<void> => {
     const parsed = companySchema.safeParse(req.body);
     if (!parsed.success) {
         res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
@@ -51,7 +52,7 @@ router.post('/:storeId/companies', requireStoreAdmin, async (req: Request, res: 
 });
 
 // PUT /stores/:storeId/companies/:id
-router.put('/:storeId/companies/:id', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.put('/:storeId/companies/:id', requirePermission('b2b:write'), async (req: Request, res: Response): Promise<void> => {
     const parsed = companySchema.partial().safeParse(req.body);
     if (!parsed.success) {
         res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
@@ -79,7 +80,7 @@ router.put('/:storeId/companies/:id', requireStoreAdmin, async (req: Request, re
 });
 
 // DELETE /stores/:storeId/companies/:id
-router.delete('/:storeId/companies/:id', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.delete('/:storeId/companies/:id', requirePermission('b2b:write'), async (req: Request, res: Response): Promise<void> => {
     try {
         const existing = await prisma.company.findFirst({
             where: { id: req.params.id as string, storeId: req.params.storeId as string }

@@ -5,6 +5,7 @@ import { useAuthStore } from '@/lib/auth';
 import { Sidebar } from '@/components/layout/Sidebar';
 import { ConfigureModal } from '@/components/ConfigureModal';
 import { AdminChatbot } from '@/components/AdminChatbot';
+import { Toaster } from 'react-hot-toast';
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -38,6 +39,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       </main>
       {store && !store.configured && <ConfigureModal storeId={store.id} />}
       <AdminChatbot />
+      <Toaster position="top-center" />
     </div>
   );
 }

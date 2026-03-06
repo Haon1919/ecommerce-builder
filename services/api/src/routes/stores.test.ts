@@ -17,6 +17,13 @@ jest.mock('../middleware/auth', () => ({
   requireSuperAdmin: (req: any, res: any, next: any) => next(),
 }));
 
+jest.mock('../middleware/auth.permission', () => ({
+  requirePermission: () => (req: any, res: any, next: any) => {
+    req.user = req.user || { sub: 'admin-1', type: 'USER', storeId: 'cl-store-123' };
+    next();
+  },
+}));
+
 jest.mock('../services/encryption', () => ({
   encrypt: jest.fn((text) => `encrypted-${text}`),
   decrypt: jest.fn(),

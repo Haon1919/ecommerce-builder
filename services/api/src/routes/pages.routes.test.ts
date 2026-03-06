@@ -14,6 +14,15 @@ jest.mock('../db', () => ({
   prisma: mockDeep<PrismaClient>(),
 }));
 jest.mock('../middleware/auth');
+jest.mock('../middleware/auth.permission', () => ({
+  requirePermission: () => (req: any, res: any, next: any) => {
+    req.user = req.user || { sub: 'admin-1', type: 'USER', storeId: 'store-1' };
+    next();
+  },
+}));
+jest.mock('../services/roles.service', () => ({
+  hasPermission: jest.fn().mockResolvedValue(true),
+}));
 jest.mock('../services/gemini');
 jest.mock('../utils/logger');
 jest.mock('../config', () => ({ config: { logging: { level: 'info' }, features: { bypassTierChecks: false } } }));

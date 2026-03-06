@@ -14,6 +14,10 @@ jest.mock('../db', () => ({
 jest.mock('../middleware/auth', () => ({
   requireSuperAdmin: (req: any, res: any, next: any) => next(),
 }));
+
+jest.mock('../middleware/auth.permission', () => ({
+  requirePermission: () => (req: any, res: any, next: any) => next(),
+}));
 jest.mock('../utils/logger');
 jest.mock('../config', () => ({ config: { logging: { level: 'info' } } }));
 
@@ -51,50 +55,50 @@ describe('Logs Routes', () => {
     });
 
     it('should filter logs by level', async () => {
-        await request(app).get('/logs?level=ERROR');
-        expect(mockedPrisma.appLog.findMany).toHaveBeenCalledWith(expect.objectContaining({
-            where: { level: 'ERROR' },
-        }));
+      await request(app).get('/logs?level=ERROR');
+      expect(mockedPrisma.appLog.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { level: 'ERROR' },
+      }));
     });
   });
 
   // --- GET /logs/stats ---
   describe('GET /logs/stats', () => {
     it('should return log stats and trends', async () => {
-        const stats = [{ level: 'INFO', _count: { id: 100 } }];
-        const trend = [{ minute: '2024-01-01T00:00:00Z', errors: 1, total: 100 }];
-        mockedPrisma.appLog.groupBy.mockResolvedValue(stats as any);
-        mockedPrisma.$queryRaw.mockResolvedValue(trend);
+      const stats = [{ level: 'INFO', _count: { id: 100 } }];
+      const trend = [{ minute: '2024-01-01T00:00:00Z', errors: 1, total: 100 }];
+      mockedPrisma.appLog.groupBy.mockResolvedValue(stats as any);
+      mockedPrisma.$queryRaw.mockResolvedValue(trend);
 
-        const res = await request(app).get('/logs/stats');
+      const res = await request(app).get('/logs/stats');
 
-        expect(res.status).toBe(200);
-        expect(res.body.stats).toEqual(stats);
-        expect(res.body.trend).toEqual(trend);
+      expect(res.status).toBe(200);
+      expect(res.body.stats).toEqual(stats);
+      expect(res.body.trend).toEqual(trend);
     });
   });
 
   // --- emitLog function ---
   describe('emitLog', () => {
     it('should emit a log event to the super-admin-logs room if socket.io is configured', () => {
-        const mockEmit = jest.fn();
-        const mockIo = {
-            to: jest.fn().mockReturnThis(),
-            emit: mockEmit,
-        };
-        setSocketIO(mockIo as any as Server);
+      const mockEmit = jest.fn();
+      const mockIo = {
+        to: jest.fn().mockReturnThis(),
+        emit: mockEmit,
+      };
+      setSocketIO(mockIo as any as Server);
 
-        const logToEmit = { id: 'log-2', level: 'ERROR', message: 'Real-time error', timestamp: new Date(), service: 'api' };
-        emitLog(logToEmit);
+      const logToEmit = { id: 'log-2', level: 'ERROR', message: 'Real-time error', timestamp: new Date(), service: 'api' };
+      emitLog(logToEmit);
 
-        expect(mockIo.to).toHaveBeenCalledWith('super-admin-logs');
-        expect(mockEmit).toHaveBeenCalledWith('log', logToEmit);
+      expect(mockIo.to).toHaveBeenCalledWith('super-admin-logs');
+      expect(mockEmit).toHaveBeenCalledWith('log', logToEmit);
     });
 
     it('should not throw an error if socket.io is not configured', () => {
-        const logToEmit = { id: 'log-2', level: 'ERROR', message: 'Real-time error', timestamp: new Date(), service: 'api' };
-        // Should not throw
-        expect(() => emitLog(logToEmit)).not.toThrow();
+      const logToEmit = { id: 'log-2', level: 'ERROR', message: 'Real-time error', timestamp: new Date(), service: 'api' };
+      // Should not throw
+      expect(() => emitLog(logToEmit)).not.toThrow();
     });
   });
 });

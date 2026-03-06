@@ -3,7 +3,7 @@ import { prisma } from '../db';
 import { logger } from '../utils/logger';
 import { NotFoundError } from '../errors';
 import { JwtPayload } from '../middleware/auth';
-
+import { webhookDispatcher } from './webhook.dispatcher';
 export const ProductService = {
     async listProducts(params: { storeId: string, category?: any, search?: any, featured?: any, limit?: string, offset?: string, sort?: string, user?: any }) {
         const { storeId, category, search, featured, limit = '20', offset = '0', sort = 'createdAt', user } = params;
@@ -98,9 +98,11 @@ export const ProductService = {
     },
 
     async createProduct(storeId: string, data: any) {
-        return await prisma.product.create({
+        const product = await prisma.product.create({
             data: { ...data, storeId, price: data.price, comparePrice: data.comparePrice },
         });
+        webhookDispatcher.dispatch({ topic: 'product.created', storeId, payload: product });
+        return product;
     },
 
     async updateProduct(storeId: string, productId: string, data: any) {
@@ -109,10 +111,12 @@ export const ProductService = {
             throw new NotFoundError('Product not found');
         }
 
-        return await prisma.product.update({
+        const product = await prisma.product.update({
             where: { id: productId },
             data,
         });
+        webhookDispatcher.dispatch({ topic: 'product.updated', storeId, payload: product });
+        return product;
     },
 
     async deleteProduct(storeId: string, productId: string) {
@@ -121,7 +125,8 @@ export const ProductService = {
             throw new NotFoundError('Product not found');
         }
 
-        await prisma.product.update({ where: { id: productId }, data: { active: false } });
+        const product = await prisma.product.update({ where: { id: productId }, data: { active: false } });
+        webhookDispatcher.dispatch({ topic: 'product.deleted', storeId, payload: product });
         return { success: true };
     },
 

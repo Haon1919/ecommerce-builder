@@ -46,6 +46,10 @@ model Store {
   videoClips      VideoClip[]
   liveStreams     LiveStream[]
   apiKeys         ApiKey[]
+  discounts       DiscountRule[]
+  installations   AppInstallation[]
+  roles           Role[]
+  locations       Location[]
 
   @@index([slug])
 }
@@ -78,7 +82,8 @@ model StoreSettings {
   metaTitle           String?
   metaDescription     String?
   currency            String   @default("USD")
-  taxRate             Float    @default(0)
+  taxRate             Float    @default(0) // legacy fallback
+  taxNexus            String[] @default([]) // e.g., ["CA", "NY"]
   freeShippingAbove   Float?
   flatShippingRate    Float    @default(0)
   gaId                String?
@@ -93,11 +98,13 @@ model User {
   password    String // bcrypt hashed
   name        String
   avatarUrl   String?
-  role        UserRole  @default(ADMIN)
+  roleId      String
+  role        Role      @relation(fields: [roleId], references: [id])
   storeId     String
   store       Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
   companyId   String?
   company     Company?  @relation(fields: [companyId], references: [id])
+  tags        String[]  @default([])
   active      Boolean   @default(true)
   lastLoginAt DateTime?
   createdAt   DateTime  @default(now())
@@ -111,10 +118,34 @@ model User {
   @@index([storeId])
 }
 
-enum UserRole {
-  OWNER
-  ADMIN
-  VIEWER
+// ==================== ROLES & PERMISSIONS ====================
+
+model Role {
+  id          String   @id @default(cuid())
+  storeId     String
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  isStatic    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users       User[]
+  permissions Permission[]
+
+  @@unique([storeId, name])
+  @@index([storeId])
+}
+
+model Permission {
+  id        String   @id @default(cuid())
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  action    String
+  createdAt DateTime @default(now())
+
+  @@unique([roleId, action])
+  @@index([roleId])
 }
 
 // ==================== API KEYS (EDGE API) ====================
@@ -208,6 +239,9 @@ model Product {
   modelUrl     String? // 3D model GLTF/USDZ URL
   arEnabled    Boolean  @default(false)
   weight       Float?
+  length       Float?
+  width        Float?
+  height       Float?
   active       Boolean  @default(true)
   featured     Boolean  @default(false)
   createdAt    DateTime @default(now())
@@ -215,10 +249,44 @@ model Product {
 
   orderItems OrderItem[]
   videoClips VideoClip[]
+  stocks     Stock[]
 
   @@index([storeId])
   @@index([storeId, category])
   @@index([storeId, active])
+}
+
+// ==================== INVENTORY LOCATIONS ====================
+
+model Location {
+  id         String   @id @default(cuid())
+  storeId    String
+  store      Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name       String
+  addressEnc String? // Encrypted JSON
+  priority   Int      @default(0) // Higher value = higher priority for fulfillment
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  stocks     Stock[]
+  orderItems OrderItem[]
+
+  @@index([storeId])
+}
+
+model Stock {
+  id         String   @id @default(cuid())
+  productId  String
+  product    Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  locationId String
+  location   Location @relation(fields: [locationId], references: [id], onDelete: Cascade)
+  quantity   Int      @default(0)
+  updatedAt  DateTime @updatedAt
+
+  @@unique([productId, locationId])
+  @@index([productId])
+  @@index([locationId])
 }
 
 // ==================== ORDERS (Customer PII is encrypted) ====================
@@ -241,8 +309,12 @@ model Order {
   shippingAddrEnc  String // encrypted JSON
   // Non-PII financial data
   subtotal         Decimal     @db.Decimal(10, 2)
+  totalDiscount    Decimal     @default(0) @db.Decimal(10, 2)
+  appliedDiscounts Json? // Array of { ruleId: string, code: string, amount: number }
   tax              Decimal     @default(0) @db.Decimal(10, 2)
   shipping         Decimal     @default(0) @db.Decimal(10, 2)
+  carrier          String?
+  shippingService  String?
   total            Decimal     @db.Decimal(10, 2)
   currency         String      @default("USD")
   stripePaymentId  String?
@@ -274,17 +346,21 @@ enum OrderStatus {
 }
 
 model OrderItem {
-  id          String  @id @default(cuid())
-  orderId     String
-  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  vendorId    String? // Link to vendor for the item
-  vendor      Vendor? @relation(fields: [vendorId], references: [id])
-  productId   String
-  product     Product @relation(fields: [productId], references: [id])
-  productName String // Snapshot at time of purchase
-  quantity    Int
-  price       Decimal @db.Decimal(10, 2)
-  variantInfo Json? // Snapshot of variant selection
+  id             String    @id @default(cuid())
+  orderId        String
+  order          Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendorId       String? // Link to vendor for the item
+  vendor         Vendor?   @relation(fields: [vendorId], references: [id])
+  productId      String
+  product        Product   @relation(fields: [productId], references: [id])
+  productName    String // Snapshot at time of purchase
+  quantity       Int
+  price          Decimal   @db.Decimal(10, 2)
+  discountAmount Decimal   @default(0) @db.Decimal(10, 2)
+  discountRuleId String?
+  variantInfo    Json? // Snapshot of variant selection
+  locationId     String?
+  location       Location? @relation(fields: [locationId], references: [id])
 }
 
 // ==================== MESSAGES ====================
@@ -583,21 +659,143 @@ enum LiveStreamStatus {
 }
 
 model Vendor {
-  id              String   @id @default(cuid())
-  storeId         String
-  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  name            String
-  description     String?
-  logoUrl         String?
+  id                 String   @id @default(cuid())
+  storeId            String
+  store              Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name               String
+  description        String?
+  logoUrl            String?
   stripeAccountIdEnc String? // Store Stripe Connect Account ID encrypted
-  payoutEnabled   Boolean  @default(false)
-  active          Boolean  @default(true)
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  payoutEnabled      Boolean  @default(false)
+  active             Boolean  @default(true)
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
 
   products   Product[]
   orders     Order[]
   orderItems OrderItem[]
 
   @@index([storeId])
+}
+
+// ==================== 3RD-PARTY PUBLIC APP API ====================
+
+model ExternalApp {
+  id           String   @id @default(cuid())
+  name         String
+  description  String?
+  developerId  String? // Optional link to a user who owns the app
+  clientId     String   @unique
+  clientSecret String // AES-256 encrypted
+  redirectUris String[] // Allowed OAuth redirect URIs
+  webhookUrl   String?
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  installations AppInstallation[]
+  webhooks      WebhookSubscription[]
+  authCodes     OAuthCode[]
+
+  @@index([clientId])
+}
+
+model AppInstallation {
+  id              String      @id @default(cuid())
+  storeId         String
+  store           Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  appId           String
+  app             ExternalApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+  // OAuth2 Tokens (AES-256 encrypted)
+  accessTokenEnc  String
+  refreshTokenEnc String?
+  scopes          String[] // e.g., ["read_products", "write_orders"]
+  expiresAt       DateTime?
+  installedAt     DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@unique([storeId, appId])
+  @@index([storeId])
+  @@index([appId])
+}
+
+model WebhookSubscription {
+  id        String      @id @default(cuid())
+  appId     String
+  app       ExternalApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+  storeId   String
+  // Relation to Store is already implicit via AppInstallation, but we can make it explicit if needed.
+  // For simplicity, we just store the storeId.
+  topic     String // e.g., "products/create", "orders/paid"
+  targetUrl String
+  secret    String // AES-256 encrypted for signature verification
+  active    Boolean     @default(true)
+  createdAt DateTime    @default(now())
+
+  @@index([appId, storeId])
+}
+
+model OAuthCode {
+  id        String      @id @default(cuid())
+  code      String      @unique
+  appId     String
+  app       ExternalApp @relation(fields: [appId], references: [id], onDelete: Cascade)
+  storeId   String
+  userId    String // User who authorized the app
+  scopes    String[]
+  expiresAt DateTime
+  createdAt DateTime    @default(now())
+
+  @@index([code])
+}
+
+// ==================== DISCOUNTS ====================
+
+model DiscountRule {
+  id          String       @id @default(cuid())
+  storeId     String
+  store       Store        @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  code        String? // Optional code for manual entry
+  description String?
+  type        DiscountType
+  value       Decimal      @db.Decimal(10, 2)
+  priority    Int          @default(0)
+  combinable  Boolean      @default(false)
+  active      Boolean      @default(true)
+  startDate   DateTime?
+  endDate     DateTime?
+
+  // For Buy X Get Y
+  buyQuantity  Int?
+  getQuantity  Int?
+  buyProductId String?
+  getProductId String?
+
+  conditions DiscountCondition[]
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+
+  @@index([storeId])
+  @@index([code])
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BUY_X_GET_Y
+}
+
+model DiscountCondition {
+  id        String        @id @default(cuid())
+  ruleId    String
+  rule      DiscountRule  @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  type      ConditionType
+  value     String // e.g., "100.00" for MIN_CART_VALUE, or "VIP" for CUSTOMER_TAG
+  createdAt DateTime      @default(now())
+  updatedAt DateTime      @updatedAt
+}
+
+enum ConditionType {
+  MIN_CART_VALUE
+  CUSTOMER_TAG
 }

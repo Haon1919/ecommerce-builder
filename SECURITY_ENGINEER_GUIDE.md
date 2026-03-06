@@ -31,6 +31,13 @@ Customer PII (Emails, Names, Addresses, Phones) passing through the system is de
 - Columns tracking PII are suffixed with `Enc` (e.g., `customerEmailEnc`, `customerNameEnc`) to explicitly denote application-level encrypted fields.
 - Cloud SQL inherently provides infrastructure-level encryption (Google-managed keys), but double-encrypting sensitive columns shields them from read-only manual queries and unauthorized staff.
 
+#### OAuth & 3rd-Party App Security
+Extended protection is applied to the 3rd-party app ecosystem:
+- **Client Secrets**: `ExternalApp.clientSecret` is AES-256 encrypted.
+- **Access & Refresh Tokens**: `AppInstallation.accessTokenEnc` and `AppInstallation.refreshTokenEnc` are AES-256 encrypted.
+- **Webhook Secrets**: `WebhookSubscription.secret` is AES-256 encrypted, used for signing outgoing hmac payloads.
+- **OAuth Codes**: `OAuthCode.code` is stored in plain text but has a strict 10-minute expiration and is deleted immediately upon single-use exchange.
+
 ### Data Retention
 The API automatically deletes old operational data to limit exposure surface:
 - **AppLog** rows older than `APP_LOGS_RETENTION_DAYS` (default: 30 days) are purged every 24 hours.

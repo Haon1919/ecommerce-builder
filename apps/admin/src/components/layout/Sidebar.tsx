@@ -6,7 +6,7 @@ import { useAuthStore } from '@/lib/auth';
 import { ThemeToggle } from '../theme-toggle';
 import {
   LayoutDashboard, Layers, Package, MessageSquare, Ticket, Settings,
-  ShoppingCart, LogOut, ExternalLink, ChevronRight, Building, Banknote, Video, Store
+  ShoppingCart, LogOut, ExternalLink, ChevronRight, Building, Banknote, Video, Store, Tag
 } from 'lucide-react';
 
 const navItems = [
@@ -14,6 +14,7 @@ const navItems = [
   { href: '/builder', icon: Layers, label: 'Page Builder' },
   { href: '/inventory', icon: Package, label: 'Inventory' },
   { href: '/orders', icon: ShoppingCart, label: 'Orders' },
+  { href: '/offers', icon: Tag, label: 'Offers' },
   { href: '/messages', icon: MessageSquare, label: 'Messages', badge: 'unread' },
   { href: '/tickets', icon: Ticket, label: 'Support Tickets' },
   { href: '/companies', icon: Building, label: 'Companies' },

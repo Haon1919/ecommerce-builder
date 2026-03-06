@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/auth';
 import { storeApi } from '@/lib/api';
+import { Shield } from 'lucide-react';
 
 type ThemeType = 'TAILWIND' | 'BOOTSTRAP' | 'BULMA' | 'PICO';
 const THEMES: { value: ThemeType, label: string, desc: string, preview: string }[] = [
@@ -86,7 +87,13 @@ export default function SettingsPage() {
 
   return (
     <div className="p-8 max-w-3xl">
-      <h1 className="text-2xl font-bold text-gray-900 mb-8">Store Settings</h1>
+      <div className="flex items-center justify-between mb-8">
+        <h1 className="text-2xl font-bold text-gray-900">Store Settings</h1>
+        <a href="/settings/roles" className="btn-secondary flex items-center gap-2 py-2">
+          <Shield className="w-4 h-4" />
+          Roles & Permissions
+        </a>
+      </div>
 
       <div className="space-y-8">
         {/* General */}

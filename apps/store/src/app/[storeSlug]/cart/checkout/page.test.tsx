@@ -27,6 +27,9 @@ jest.mock('@/lib/api', () => ({
     ordersApi: {
         create: jest.fn(),
     },
+    cartApi: {
+        calculate: jest.fn(),
+    },
 }));
 
 const mockPush = jest.fn();
@@ -58,8 +61,27 @@ describe('CheckoutPage', () => {
 
         (useCartStore as unknown as jest.Mock).mockReturnValue(mockCartStore);
 
-        (useQuery as jest.Mock).mockReturnValue({
-            data: mockStoreData,
+        (useQuery as jest.Mock).mockImplementation((options: any) => {
+            if (options.queryKey[0] === 'store') {
+                return { data: mockStoreData };
+            }
+            if (options.queryKey[0] === 'cart-calculation') {
+                return {
+                    data: {
+                        subtotal: 20,
+                        totalDiscount: 0,
+                        discountedSubtotal: 20,
+                        tax: 2,
+                        shipping: 5,
+                        total: 27,
+                        appliedDiscounts: []
+                    }
+                };
+            }
+            if (options.queryKey[0] === 'shipping-rates') {
+                return { data: [] };
+            }
+            return { data: null };
         });
     });
 
@@ -153,6 +175,10 @@ describe('CheckoutPage', () => {
                     country: 'US', // default
                 },
                 items: [{ productId: 'prod-1', quantity: 2 }],
+                providedCodes: [],
+                shippingCost: 5,
+                carrier: undefined,
+                shippingService: undefined,
             });
 
             expect(mockCartStore.clearCart).toHaveBeenCalled();
@@ -190,5 +216,54 @@ describe('CheckoutPage', () => {
         });
 
         alertMock.mockRestore();
+    });
+
+    it('should allow applying a discount code', async () => {
+        const { calculate } = jest.requireMock('@/lib/api').cartApi;
+        calculate.mockResolvedValue({
+            subtotal: 20,
+            totalDiscount: 5,
+            discountedSubtotal: 15,
+            tax: 1.5,
+            shipping: 5,
+            total: 21.5,
+            appliedDiscounts: [{ ruleId: 'disc-1', code: 'SAVE5', amount: 5, description: 'Save $5' }]
+        });
+
+        // Use a fresh mock for this specific test to control the hook's return value
+        (useQuery as jest.Mock).mockImplementation((options: any) => {
+            if (options.queryKey[0] === 'store') return { data: mockStoreData };
+            if (options.queryKey[0] === 'cart-calculation') {
+                const appliedCodes = options.queryKey[3] || [];
+                if (appliedCodes.includes('SAVE5')) {
+                    return {
+                        data: {
+                            subtotal: 20, totalDiscount: 5, discountedSubtotal: 15,
+                            tax: 1.5, shipping: 5, total: 21.5,
+                            appliedDiscounts: [{ ruleId: 'disc-1', code: 'SAVE5', amount: 5, description: 'Save $5' }]
+                        }
+                    };
+                }
+                return {
+                    data: {
+                        subtotal: 20, totalDiscount: 0, discountedSubtotal: 20,
+                        tax: 2, shipping: 5, total: 27, appliedDiscounts: []
+                    }
+                };
+            }
+            return { data: null };
+        });
+
+        render(<CheckoutPage />);
+
+        const input = screen.getByPlaceholderText(/Enter discount code/i);
+        fireEvent.change(input, { target: { value: 'SAVE5' } });
+        fireEvent.click(screen.getByRole('button', { name: /Apply/i }));
+
+        await waitFor(() => {
+            expect(screen.getByText('-$5.00')).toBeInTheDocument();
+            expect(screen.getByText('$21.50')).toBeInTheDocument();
+            expect(screen.getByText('SAVE5')).toBeInTheDocument();
+        });
     });
 });

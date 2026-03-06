@@ -1,0 +1,75 @@
+# Enterprise Feature Prompt Chains
+
+Here is a structured list of prompt chains to build out the missing enterprise features. 
+
+To maximize velocity, these are divided into **Tracks**. Entire tracks can be run **in parallel** (e.g., one agent working on Track 1 while another works on Track 2) because they touch fundamentally different domains (Authorization vs. Inventory vs. Ecosystem). 
+
+Within each track, the prompts are **sequential** (Prompt 1 -> Prompt 2 -> Prompt 3) and must explicitly include instructions for tests and documentation updates.
+
+---
+
+## 🟢 TRACK 1: Access Control & Inventory (Can Run in Parallel with Track 2 & 3)
+
+This track handles foundational data structural changes that don't depend on external systems.
+
+### Flow 1A: Granular Role-Based Access Control (RBAC)
+*Requires sequence. Touches Users, Auth Middleware, and Admin UI.*
+
+1. **Prompt 1: Database & Core Service**
+   > "Update `schema.prisma` to support Granular Role-Based Access Control (RBAC). Replace the simple `UserRole` enum with dynamic `Role` and `Permission` models linked to `User` and `Store`. Write a database migration and a seed script for default roles (Owner, Product Manager, Support). Create a `roles.service.ts` for evaluating user permissions. Write unit tests for the new database operations and update `ARCHITECTURE.md` outlining the new auth model."
+2. **Prompt 2: Middleware & Routing**
+   > "Update the API authorization middleware to enforce granular permissions (e.g., `requirePermission('order:read')`) instead of role-based checks. Apply the new middleware across all existing API routes appropriately. Fix all failing unit tests and API integration tests that rely on the old role system."
+3. **Prompt 3: Admin User Interface**
+   > "Build a 'Roles & Permissions' management interface in the Admin UI (under Settings). Allow store owners to create custom roles, assign specific read/write/delete permissions per resource, and assign these roles to staff members. Write React Testing Library tests for the new components and update the Admin section of `DEVELOPER_GUIDE.md`."
+
+### Flow 1B: Multi-Location Inventory & POS Prep
+*Requires sequence. Touches Products, Orders, and Logic.*
+
+1. **Prompt 1: Multi-Location Schema**
+   > "Update `schema.prisma` to support Multi-Location Inventory. Create a `Location` model (linked to Store) and an `InventoryLevel` model mapping `Product` to `Location` with specific stock quantities. Create a migration script that moves existing `Product.stock` into a default 'Primary Warehouse' location for each store. Write unit tests validating stock calculations across multiple locations."
+2. **Prompt 2: Order Fulfillment Routing**
+   > "Modify the checkout and order creation APIs to handle multi-location stock. Implement logic to deduct stock from the appropriate `Location` (e.g., based on priority or availability) when an order is placed. Add comprehensive unit tests for priority-based stock deduction and edge cases like split-fulfillment. Update related `Order` swagger/API docs."
+3. **Prompt 3: Inventory UI**
+   > "Update the Admin UI Product pages to view and manage stock linearly across multiple locations. Add a 'Locations' management page in Settings. Update the Playwright E2E product management tests to verify the new multi-location inputs. Document the new inventory architecture in `README.md` and `ARCHITECTURE.md`."
+
+---
+
+## 🔵 TRACK 2: Complex Business Logic (Can Run in Parallel with Track 1 & 3)
+
+This track handles the complex, calculation-heavy mechanics of the cart and checkout.
+
+### Flow 2A: Advanced Discount & Promotion Engine
+*Requires sequence. Touches Cart Engine, Pricing, and UI.*
+
+1. **Prompt 1: Rule Engine Backend**
+   > "Implement a complex rule-based Discount Engine. Add `DiscountRule` and `DiscountCondition` models to `schema.prisma` to support scenarios like 'Buy X Get Y', 'Min Cart Value', and 'Specific Customer Tags'. Create an evaluation engine in `services/discount.ts`. Write extensive deterministic unit tests testing overlapping discount rules and ensuring the best discount is applied."
+2. **Prompt 2: Checkout Integration**
+   > "Integrate the new Discount Engine into the cart calculation API and Order creation flow. Ensure taxes and shipping are accurately calculated *after* discounts are applied, and record the `discountRef` on the resulting `OrderItem` or `Order`. Update storefront checkout tests and unit tests to validate discounted totals."
+3. **Prompt 3: Promotions Builder UI**
+   > "Create a visual 'Promotions Builder' in the Admin UI under an 'Offers' tab. Allow merchants to visually construct complex rules (IF [condition] THEN [action]). Add deep frontend testing for the builder state management, and update `SUPER_ADMIN_GUIDE.md` and `DEVELOPER_GUIDE.md` with the promotion engine specifications."
+
+### Flow 2B: Live Carrier Rates & Shipping
+*Requires sequence. Touches External APIs, Cart, and Admin UI.*
+
+1. **Prompt 1: Carrier Integration Layer**
+   > "Create a unified `services/shipping.ts` interface capable of querying external carrier rates. Add mocked integrations for UPS, FedEx, and USPS. Update `schema.prisma` to include dimensional constraints (`length, width, height`) on Products. Write unit tests evaluating the volumetric weight calculator and mocked carrier API responses."
+2. **Prompt 2: Real-time Checkout Rates**
+   > "Expose an `/api/checkout/shipping-rates` endpoint that takes cart contents and a shipping address to return live JSON rates from the shipping service. Integrate this endpoint into the Storefront React checkout flow, allowing users to dynamically select from live carrier rates. Update Playwright E2E checkout tests to mock real-time rate selection."
+3. **Prompt 3: Fulfillment Webhooks & UI**
+   > "Update the Admin Order UI to support a native 'Fulfillment' action (generate labels, input tracking numbers). Create an API endpoint to update an order to 'SHIPPED' and trigger an email dispatch. Write E2E tests for the admin fulfillment flow and make sure the `README.md` reflects this new shipping capability."
+
+---
+
+## 🟣 TRACK 3: The 3rd-Party Ecosystem (Run Phase 1 in Parallel, but Phase 2 requires track 1/2 to be mostly baked)
+
+This track introduces external systems and developer integrations. It can be run independently of 1 & 2.
+
+### Flow 3: Public App Ecosystem & Webhooks
+*Requires sequence. Touches System-wide Auth, Webhooks, and Event loops.*
+
+1. **Prompt 1: OAuth2 API Scopes**
+   > "Design a 3rd-Party Public App API. Update `schema.prisma` adding `ExternalApp`, `AppInstallation`, and `WebhookSubscription` models. Implement an industry-standard OAuth2 flow for apps to request specific API scopes (e.g., `read_products`, `write_orders`). Add strict unit tests for the OAuth service and update `SECURITY_ENGINEER_GUIDE.md` to review the OAuth models."
+2. **Prompt 2: Asynchronous Webhook Dispatcher**
+   > "Implement a robust async webhook dispatcher in the API service. When core system events occur (e.g., `order.created`, `product.updated`), the system should queue and dispatch signed webhook payloads to all subscribed `AppInstallation` URLs with exponential retry logic. Add integration tests verifying webhook delivery and signature signing security."
+3. **Prompt 3: Developer Portal**
+   > "Create a 'Developer Hub' interface. Allow 3rd party developers to register an `ExternalApp`, retrieve their Client IDs and Secrets, and define their required OAuth scopes. Compile an extensive `PUBLIC_API_REST_GUIDE.md` documenting the new OAuth flow, available endpoints, testing environments, and webhook payload structures. Add E2E tests for App creation."

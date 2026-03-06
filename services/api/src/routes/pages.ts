@@ -1,7 +1,9 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { requireStoreAdmin, optionalAuth } from '../middleware/auth';
+import { requireAuth, optionalAuth } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
+import { hasPermission } from '../services/roles.service';
 import { requireTier, SubscriptionTier } from '../middleware/tier';
 import { generateStoreLayout } from '../services/gemini';
 
@@ -25,7 +27,7 @@ const pageSchema = z.object({
 });
 
 // GET /stores/:storeId/layout/generate
-router.get('/:storeId/layout/generate', optionalAuth, requireTier(SubscriptionTier.ENTERPRISE), async (req: Request, res: Response): Promise<void> => {
+router.get('/:storeId/layout/generate', requirePermission('pages:write'), requireTier(SubscriptionTier.ENTERPRISE), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const context = req.query.context as string | undefined;
 
@@ -42,7 +44,10 @@ router.get('/:storeId/layout/generate', optionalAuth, requireTier(SubscriptionTi
 // get just the root/landing page (empty slug).
 router.get('/:storeId/pages', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
-  const isAdmin = req.user?.storeId === storeId || req.user?.type === 'SUPER_ADMIN';
+  let isAdmin = req.user?.type === 'SUPER_ADMIN';
+  if (!isAdmin && req.user && req.user.storeId === storeId) {
+    isAdmin = await hasPermission(req.user.sub, 'pages:read');
+  }
 
   if (isAdmin) {
     // Admin: return the full page list
@@ -72,7 +77,10 @@ router.get('/:storeId/pages', optionalAuth, async (req: Request, res: Response):
 router.get('/:storeId/pages/:slug(*)', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const slug = (req.params.slug as string) || '';
-  const isAdmin = req.user?.storeId === storeId || req.user?.type === 'SUPER_ADMIN';
+  let isAdmin = req.user?.type === 'SUPER_ADMIN';
+  if (!isAdmin && req.user && req.user.storeId === storeId) {
+    isAdmin = await hasPermission(req.user.sub, 'pages:read');
+  }
 
   const page = await prisma.page.findFirst({
     where: {
@@ -91,7 +99,7 @@ router.get('/:storeId/pages/:slug(*)', optionalAuth, async (req: Request, res: R
 });
 
 // POST /stores/:storeId/pages - create page
-router.post('/:storeId/pages', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/pages', requirePermission('pages:write'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const parsed = pageSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -117,7 +125,7 @@ router.post('/:storeId/pages', requireStoreAdmin, async (req: Request, res: Resp
 });
 
 // PUT /stores/:storeId/pages/:pageId - update page layout
-router.put('/:storeId/pages/:pageId', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.put('/:storeId/pages/:pageId', requirePermission('pages:write'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const pageId = req.params.pageId as string;
 
@@ -143,7 +151,7 @@ router.put('/:storeId/pages/:pageId', requireStoreAdmin, async (req: Request, re
 });
 
 // POST /stores/:storeId/pages/:pageId/publish
-router.post('/:storeId/pages/:pageId/publish', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/pages/:pageId/publish', requirePermission('pages:write'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const pageId = req.params.pageId as string;
   const { published } = req.body as { published: boolean };
@@ -159,7 +167,7 @@ router.post('/:storeId/pages/:pageId/publish', requireStoreAdmin, async (req: Re
 });
 
 // POST /stores/:storeId/configure - mark store as configured
-router.post('/:storeId/configure', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/configure', requirePermission('settings:write'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
 
   await prisma.store.update({ where: { id: storeId }, data: { configured: true } });

@@ -6,8 +6,11 @@ import { recordMetric } from './anomaly';
 import { NotFoundError, InsufficientStockError } from '../errors';
 import { JwtPayload } from '../middleware/auth';
 import { PaymentService } from './payment';
-
-interface OrderItem {
+import { discountService, Cart } from './discount';
+import { webhookDispatcher } from './webhook.dispatcher';
+import { taxService } from './tax';
+import { Address } from './shipping';
+interface OrderItemInput {
     productId: string;
     quantity: number;
     variantInfo?: unknown;
@@ -19,9 +22,13 @@ interface CreateOrderData {
     customerName: string;
     customerPhone?: string;
     shippingAddress: Record<string, unknown>;
-    items: OrderItem[];
+    items: OrderItemInput[];
     notes?: string;
     paymentTerms?: string;
+    providedCodes?: string[];
+    shippingCost?: number;
+    carrier?: string;
+    shippingService?: string;
 }
 
 export const OrderService = {
@@ -29,9 +36,10 @@ export const OrderService = {
         let companyId: string | null = null;
         let pricesOverride: Record<string, string | number> = {};
 
+        let userTags: string[] = [];
         if (user && user.type === 'USER') {
             const dbUser = await prisma.user.findUnique({
-                where: { id: user.sub },
+                where: { id: user.sub || (user as any).userId },
                 include: { company: { include: { priceList: true } } },
             });
             if (dbUser?.companyId) {
@@ -40,25 +48,59 @@ export const OrderService = {
                     pricesOverride = (dbUser.company.priceList.prices as Record<string, string | number>) || {};
                 }
             }
+            if (dbUser?.tags) {
+                userTags = dbUser.tags;
+            }
         }
 
-        // Validate all products exist and have sufficient stock
+        // Validate all products exist
         const products = await prisma.product.findMany({
             where: {
-                id: { in: data.items.map((i: any) => i.productId) },
+                id: { in: data.items.map((i) => i.productId) },
                 storeId: storeId,
                 active: true,
             },
         });
 
         const productMap = new Map((products as any[]).map((p) => [p.id, p]));
+
+        // Determine fulfillment plan based on priority and availability
+        const fulfillmentPlan: { productId: string; locationId: string | null; quantity: number }[] = [];
+
         for (const item of data.items) {
             const product = productMap.get(item.productId);
             if (!product) {
                 throw new NotFoundError(`Product ${item.productId} not found`);
             }
-            if (product.trackStock && product.stock < item.quantity) {
-                throw new InsufficientStockError(`Insufficient stock for ${product.name}`);
+
+            if (!product.trackStock) {
+                fulfillmentPlan.push({ productId: item.productId, locationId: null, quantity: item.quantity });
+                continue;
+            }
+
+            // Fetch active locations for this store ordered by priority DESC
+            const locations = await prisma.location.findMany({
+                where: { storeId, active: true },
+                include: { stocks: { where: { productId: product.id } } },
+                orderBy: { priority: 'desc' },
+            });
+
+            let remaining = item.quantity;
+            for (const loc of locations) {
+                if (remaining <= 0) break;
+                const available = loc.stocks[0]?.quantity || 0;
+                if (available > 0) {
+                    const take = Math.min(remaining, available);
+                    fulfillmentPlan.push({ productId: item.productId, locationId: loc.id, quantity: take });
+                    remaining -= take;
+                }
+            }
+
+            if (remaining > 0) {
+                const totalStock = locations.reduce((sum: number, l: any) => sum + (l.stocks[0]?.quantity || 0), 0);
+                throw new InsufficientStockError(
+                    `Insufficient stock for ${product.name}. Requested ${item.quantity}, but only ${totalStock} available across all locations.`
+                );
             }
         }
 
@@ -76,176 +118,234 @@ export const OrderService = {
             subtotal += effectivePrice * item.quantity;
         }
 
-        const tax = subtotal * (taxRate / 100);
-        const shipping = freeShippingAbove && subtotal >= freeShippingAbove ? 0 : flatShipping;
-        const total = subtotal + tax + shipping;
+        // Calculate discounts
+        const cart: Cart = {
+            items: data.items.map((item) => {
+                const product = productMap.get(item.productId)!;
+                const override = pricesOverride[item.productId];
+                const price = override ? Number(override) : Number(product.price);
+                return { productId: item.productId, quantity: item.quantity, price };
+            }),
+            subtotal,
+        };
 
-        // Group items by vendor
+        const providedCodes = data.providedCodes || [];
+        const appliedDiscounts = await discountService.calculateBestDiscounts(storeId, cart, userTags, providedCodes);
+        const totalDiscount = appliedDiscounts.reduce((sum, d) => sum + d.amount, 0);
+        const discountedSubtotal = Math.max(0, subtotal - totalDiscount);
+
+        const taxResult = await taxService.calculateTax(
+            storeId,
+            data.shippingAddress as unknown as Address,
+            discountedSubtotal
+        );
+        const tax = taxResult.amount;
+
+        let shipping = freeShippingAbove && discountedSubtotal >= freeShippingAbove ? 0 : flatShipping;
+        if (data.shippingCost !== undefined && data.shippingCost !== null) {
+            shipping = data.shippingCost;
+        }
+
+        const total = discountedSubtotal + tax + shipping;
+
+        // Group fulfillment units by vendor (one unit per location split)
         const vendorGroups = new Map<string | null, any[]>();
-        for (const item of data.items) {
-            const product = productMap.get(item.productId)!;
+        for (const unit of fulfillmentPlan) {
+            const product = productMap.get(unit.productId)!;
             const vId = product.vendorId || null;
             if (!vendorGroups.has(vId)) vendorGroups.set(vId, []);
-            vendorGroups.get(vId)!.push(item);
+            vendorGroups.get(vId)!.push(unit);
         }
 
         const isSplit = vendorGroups.size > 1;
 
-        // Encrypt PII — create parent order first
-        const order = await prisma.order.create({
-            data: {
-                storeId: storeId,
-                orderNumber: 'PENDING',
-                customerEmailEnc: encrypt(data.customerEmail),
-                customerNameEnc: encrypt(data.customerName),
-                customerPhoneEnc: data.customerPhone ? encrypt(data.customerPhone) : null,
-                shippingAddrEnc: encryptJson(data.shippingAddress as Record<string, unknown>),
-                subtotal,
-                tax,
-                shipping,
-                total,
-                notes: data.notes,
-                companyId,
-                paymentTerms: companyId ? data.paymentTerms : null,
-                items: {
-                    create: data.items.map((item: any) => {
-                        const product = productMap.get(item.productId)!;
-                        const override = pricesOverride[item.productId];
-                        const effectivePrice = override ? Number(override) : Number(product.price);
-                        return {
-                            product: { connect: { id: item.productId } },
-                            productName: product.name,
-                            quantity: item.quantity,
-                            price: effectivePrice,
-                            variantInfo: item.variantInfo ?? null,
-                            vendorId: product.vendorId || null,
-                        };
-                    }),
+        // Wrap order creation and stock deduction in a transaction
+        return await prisma.$transaction(async (tx) => {
+            // Create parent order
+            const order = await tx.order.create({
+                data: {
+                    storeId: storeId,
+                    orderNumber: 'PENDING',
+                    customerEmailEnc: encrypt(data.customerEmail),
+                    customerNameEnc: encrypt(data.customerName),
+                    customerPhoneEnc: data.customerPhone ? encrypt(data.customerPhone) : null,
+                    shippingAddrEnc: encryptJson(data.shippingAddress as Record<string, unknown>),
+                    subtotal,
+                    totalDiscount,
+                    appliedDiscounts: appliedDiscounts as any,
+                    tax,
+                    shipping,
+                    carrier: data.carrier || null,
+                    shippingService: data.shippingService || null,
+                    total,
+                    notes: data.notes,
+                    companyId,
+                    paymentTerms: companyId ? data.paymentTerms : null,
+                    items: {
+                        create: fulfillmentPlan.map((unit) => {
+                            const product = productMap.get(unit.productId)!;
+                            const override = pricesOverride[unit.productId];
+                            const effectivePrice = override ? Number(override) : Number(product.price);
+
+                            // Pro-rate discount if item is split across locations
+                            const originalItem = data.items.find((i) => i.productId === unit.productId)!;
+                            const lineDiscount = appliedDiscounts.find((d) => d.affectedProductId === unit.productId);
+                            const unitDiscount = lineDiscount
+                                ? (Number(lineDiscount.amount) * unit.quantity) / originalItem.quantity
+                                : 0;
+
+                            return {
+                                product: { connect: { id: unit.productId } },
+                                productName: product.name,
+                                quantity: unit.quantity,
+                                price: effectivePrice,
+                                discountAmount: unitDiscount,
+                                discountRuleId: lineDiscount ? lineDiscount.ruleId : null,
+                                variantInfo: (originalItem.variantInfo as any) ?? null,
+                                vendorId: product.vendorId || null,
+                                locationId: unit.locationId,
+                            };
+                        }),
+                    },
                 },
-            },
-            include: { items: { include: { product: { select: { name: true, images: true } } } } },
-        });
+                include: { items: { include: { product: { select: { name: true, images: true } } } } },
+            });
 
-        const orderNumber = `ORD-${new Date().getFullYear()}-${order.id.slice(-6).toUpperCase()}`;
-        await prisma.order.update({ where: { id: order.id }, data: { orderNumber } });
+            const orderNumber = `ORD-${new Date().getFullYear()}-${order.id.slice(-6).toUpperCase()}`;
+            await tx.order.update({ where: { id: order.id }, data: { orderNumber } });
 
-        // Create sub-orders if split
-        if (isSplit) {
-            const payoutItems = [];
-            const vendorIds = Array.from(vendorGroups.keys()).filter(Boolean) as string[];
-            const vendors = await prisma.vendor.findMany({ where: { id: { in: vendorIds } } });
-            const vendorMap = new Map(vendors.map(v => [v.id, v]));
+            // Create sub-orders if split
+            if (isSplit) {
+                const payoutItems = [];
+                const vendorIds = Array.from(vendorGroups.keys()).filter(Boolean) as string[];
+                const vendors = await tx.vendor.findMany({ where: { id: { in: vendorIds } } });
+                const vendorMap = new Map(vendors.map((v) => [v.id, v]));
 
-            for (const [vId, groupItems] of vendorGroups.entries()) {
-                let groupSubtotal = 0;
-                for (const item of groupItems) {
-                    const product = productMap.get(item.productId)!;
-                    const override = pricesOverride[item.productId];
-                    const effPrice = override ? Number(override) : Number(product.price);
-                    groupSubtotal += effPrice * item.quantity;
-                }
-                const groupTax = groupSubtotal * (taxRate / 100);
-                const groupShipping = 0; // allocate shipping to parent
-                const groupTotal = groupSubtotal + groupTax + groupShipping;
+                for (const [vId, groupUnits] of vendorGroups.entries()) {
+                    let groupSubtotal = 0;
+                    for (const unit of groupUnits) {
+                        const product = productMap.get(unit.productId)!;
+                        const override = pricesOverride[unit.productId];
+                        const effPrice = override ? Number(override) : Number(product.price);
+                        groupSubtotal += effPrice * unit.quantity;
+                    }
+                    const groupTax = groupSubtotal * (taxRate / 100);
+                    const groupShipping = 0;
+                    const groupTotal = groupSubtotal + groupTax + groupShipping;
 
-                const subOrder = await prisma.order.create({
-                    data: {
-                        storeId,
-                        parentOrderId: order.id,
-                        vendorId: vId,
-                        orderNumber: 'PENDING',
-                        customerEmailEnc: order.customerEmailEnc,
-                        customerNameEnc: order.customerNameEnc,
-                        customerPhoneEnc: order.customerPhoneEnc,
-                        shippingAddrEnc: order.shippingAddrEnc,
-                        subtotal: groupSubtotal,
-                        tax: groupTax,
-                        shipping: groupShipping,
-                        total: groupTotal,
-                        notes: data.notes,
-                        companyId,
-                        paymentTerms: companyId ? data.paymentTerms : null,
-                        items: {
-                            create: groupItems.map((item: any) => {
-                                const product = productMap.get(item.productId)!;
-                                const override = pricesOverride[item.productId];
-                                const effPrice = override ? Number(override) : Number(product.price);
-                                return {
-                                    product: { connect: { id: item.productId } },
-                                    productName: product.name,
-                                    quantity: item.quantity,
-                                    price: effPrice,
-                                    variantInfo: item.variantInfo ?? null,
-                                    vendorId: vId,
-                                };
-                            })
+                    const subOrder = await tx.order.create({
+                        data: {
+                            storeId,
+                            parentOrderId: order.id,
+                            vendorId: vId,
+                            orderNumber: 'PENDING',
+                            customerEmailEnc: order.customerEmailEnc,
+                            customerNameEnc: order.customerNameEnc,
+                            customerPhoneEnc: order.customerPhoneEnc,
+                            shippingAddrEnc: order.shippingAddrEnc,
+                            subtotal: groupSubtotal,
+                            tax: groupTax,
+                            shipping: groupShipping,
+                            carrier: data.carrier || null,
+                            shippingService: data.shippingService || null,
+                            total: groupTotal,
+                            notes: data.notes,
+                            companyId,
+                            paymentTerms: companyId ? data.paymentTerms : null,
+                            items: {
+                                create: groupUnits.map((unit: any) => {
+                                    const product = productMap.get(unit.productId)!;
+                                    const override = pricesOverride[unit.productId];
+                                    const effPrice = override ? Number(override) : Number(product.price);
+                                    return {
+                                        product: { connect: { id: unit.productId } },
+                                        productName: product.name,
+                                        quantity: unit.quantity,
+                                        price: effPrice,
+                                        variantInfo: (data.items.find((i) => i.productId === unit.productId)?.variantInfo as any) ?? null,
+                                        vendorId: vId,
+                                        locationId: unit.locationId,
+                                    };
+                                }),
+                            },
+                        },
+                    });
+
+                    const subOrderNumber = `ORD-${new Date().getFullYear()}-${subOrder.id.slice(-6).toUpperCase()}`;
+                    await tx.order.update({ where: { id: subOrder.id }, data: { orderNumber: subOrderNumber } });
+
+                    if (vId) {
+                        const vendor = vendorMap.get(vId);
+                        if (vendor && vendor.payoutEnabled && vendor.stripeAccountIdEnc) {
+                            payoutItems.push({
+                                vendorStripeAccountId: decrypt(vendor.stripeAccountIdEnc),
+                                amount: Math.round(groupTotal * 100),
+                                currency: settings?.currency || 'usd',
+                            });
                         }
                     }
-                });
+                }
 
-                const subOrderNumber = `ORD-${new Date().getFullYear()}-${subOrder.id.slice(-6).toUpperCase()}`;
-                await prisma.order.update({ where: { id: subOrder.id }, data: { orderNumber: subOrderNumber } });
-
+                if (payoutItems.length > 0) {
+                    await PaymentService.processSplitPayout(payoutItems);
+                }
+            } else {
+                // single vendor update
+                const vId = Array.from(vendorGroups.keys())[0];
                 if (vId) {
-                    const vendor = vendorMap.get(vId);
+                    await tx.order.update({ where: { id: order.id }, data: { vendorId: vId } });
+                    const vendor = await tx.vendor.findUnique({ where: { id: vId } });
                     if (vendor && vendor.payoutEnabled && vendor.stripeAccountIdEnc) {
-                        payoutItems.push({
-                            vendorStripeAccountId: decrypt(vendor.stripeAccountIdEnc),
-                            amount: Math.round(groupTotal * 100),
-                            currency: settings?.currency || 'usd',
-                        });
+                        await PaymentService.processSplitPayout([
+                            {
+                                vendorStripeAccountId: decrypt(vendor.stripeAccountIdEnc),
+                                amount: Math.round(total * 100),
+                                currency: settings?.currency || 'usd',
+                            },
+                        ]);
                     }
                 }
             }
 
-            if (payoutItems.length > 0) {
-                await PaymentService.processSplitPayout(payoutItems);
-            }
-        } else {
-            // single vendor update
-            const vId = Array.from(vendorGroups.keys())[0];
-            if (vId) {
-                await prisma.order.update({ where: { id: order.id }, data: { vendorId: vId } });
-                const vendor = await prisma.vendor.findUnique({ where: { id: vId } });
-                if (vendor && vendor.payoutEnabled && vendor.stripeAccountIdEnc) {
-                    await PaymentService.processSplitPayout([{
-                        vendorStripeAccountId: decrypt(vendor.stripeAccountIdEnc),
-                        amount: Math.round(total * 100),
-                        currency: settings?.currency || 'usd'
-                    }]);
-                }
-            }
-        }
+            // Deduct stock from locations and update product summary
+            for (const unit of fulfillmentPlan) {
+                const product = productMap.get(unit.productId)!;
+                if (!product.trackStock || !unit.locationId) continue;
 
-        // Decrement stock
-        await Promise.all(
-            data.items.map(async (item: any) => {
-                const product = productMap.get(item.productId)!;
-                // Record sales metric for predictive inventory
-                await recordMetric(`product_sales:${product.id}`, item.quantity, storeId, { productId: product.id });
-                if (!product.trackStock) return;
-                await prisma.product.update({
-                    where: { id: item.productId },
-                    data: { stock: { decrement: item.quantity } },
+                await tx.stock.update({
+                    where: { productId_locationId: { productId: unit.productId, locationId: unit.locationId } },
+                    data: { quantity: { decrement: unit.quantity } },
                 });
-            })
-        );
 
-        // Record metric
-        await recordMetric('order_count', 1, storeId);
+                await tx.product.update({
+                    where: { id: unit.productId },
+                    data: { stock: { decrement: unit.quantity } },
+                });
+            }
 
-        // Return order WITHOUT PII (only orderNumber and total for confirmation)
-        const orderToReturn = order as any;
-        return {
-            id: orderToReturn.id,
-            orderNumber,
-            status: orderToReturn.status,
-            subtotal: orderToReturn.subtotal,
-            tax: orderToReturn.tax,
-            shipping: orderToReturn.shipping,
-            total: orderToReturn.total,
-            items: orderToReturn.items,
-        };
+            // Record metrics
+            for (const item of data.items) {
+                await recordMetric(`product_sales:${item.productId}`, item.quantity, storeId, {
+                    productId: item.productId,
+                });
+            }
+            await recordMetric('order_count', 1, storeId);
+
+            const finalOrder = {
+                id: order.id,
+                orderNumber,
+                status: order.status,
+                subtotal: order.subtotal,
+                tax: order.tax,
+                shipping: order.shipping,
+                total: order.total,
+                items: order.items,
+            };
+
+            webhookDispatcher.dispatch({ topic: 'order.created', storeId, payload: finalOrder });
+
+            return finalOrder;
+        });
     },
 
     async listOrders(storeId: string, status?: string, limit: string = '20', offset: string = '0') {
@@ -315,6 +415,10 @@ export const OrderService = {
         if (status === 'DELIVERED') updates.deliveredAt = new Date();
 
         const updated = await prisma.order.update({ where: { id: orderId }, data: updates });
-        return { id: updated.id, status: updated.status, trackingNumber: updated.trackingNumber };
+        const result = { id: updated.id, status: updated.status, trackingNumber: updated.trackingNumber };
+
+        webhookDispatcher.dispatch({ topic: 'order.updated', storeId, payload: result });
+
+        return result;
     }
 };

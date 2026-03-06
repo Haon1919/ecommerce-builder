@@ -37,6 +37,17 @@ test.describe('Multi-Vendor Checkout Flow', () => {
             json: { id: 'prod-2', storeId, vendorId: 'vendor-B', name: 'Vendor B Product', price: 50, description: 'Desc B', stock: 10, trackStock: true, active: true, images: [] }
         }));
 
+        // Shipping Rates Mock
+        await page.route('**/api/checkout/shipping-rates', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify([
+                    { carrier: 'UPS', service: 'Ground', rate: 12.50, currency: 'USD', estimatedDays: 5 }
+                ])
+            });
+        });
+
         // Checkout Order Creation Mock
         await page.route('**/api/orders', route => {
             const req = route.request();
@@ -95,6 +106,11 @@ test.describe('Multi-Vendor Checkout Flow', () => {
             await page.getByLabel('City *').fill('Test City');
             await page.getByLabel('State *').fill('TS');
             await page.getByLabel('ZIP Code *').fill('12345');
+
+            // Wait for and select shipping rate
+            await page.waitForSelector('text=UPS Ground');
+            await page.click('text=UPS Ground');
+
             await page.getByRole('button', { name: /Continue/i }).click();
 
             // Step 2: Payment
@@ -122,6 +138,15 @@ test.describe('Multi-Vendor Checkout Flow', () => {
         // ==========================================
         // 4. EXECUTE ADMIN VERIFICATION
         // ==========================================
+
+        await page.route('**/api/auth/login', route => route.fulfill({
+            status: 200,
+            json: { token: 'fake-token', user: { id: 'admin-1', storeId } }
+        }));
+        await page.route('**/api/auth/me', route => route.fulfill({
+            status: 200,
+            json: { user: { id: 'admin-1', storeId, roles: ['Owner'] } }
+        }));
 
         const adminUrl = 'http://localhost:3002';
         await page.goto(`${adminUrl}/login`);

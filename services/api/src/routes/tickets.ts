@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { requireStoreAdmin, requireSuperAdmin, requireAdminOrSuperAdmin } from '../middleware/auth';
+import { requireSuperAdmin, requireAdminOrSuperAdmin } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
 
 const router = Router();
 
@@ -13,7 +14,7 @@ const ticketSchema = z.object({
 });
 
 // POST /stores/:storeId/tickets - admin creates ticket
-router.post('/:storeId/tickets', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/tickets', requirePermission('tickets:write'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const parsed = ticketSchema.safeParse(req.body);
   if (!parsed.success) {
@@ -36,7 +37,7 @@ router.post('/:storeId/tickets', requireStoreAdmin, async (req: Request, res: Re
 });
 
 // GET /stores/:storeId/tickets - list tickets for store admin
-router.get('/:storeId/tickets', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.get('/:storeId/tickets', requirePermission('tickets:read'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
 
   const tickets = await prisma.supportTicket.findMany({

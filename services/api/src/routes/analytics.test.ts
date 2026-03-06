@@ -17,6 +17,10 @@ jest.mock('../middleware/auth', () => ({
   requireSuperAdmin: (req: any, res: any, next: any) => next(),
 }));
 
+jest.mock('../middleware/auth.permission', () => ({
+  requirePermission: () => (req: any, res: any, next: any) => next(),
+}));
+
 jest.mock('../services/anomaly');
 
 jest.mock('../config', () => ({
@@ -72,24 +76,24 @@ describe('Analytics Routes', () => {
   // --- GET /super/overview ---
   describe('GET /super/overview', () => {
     it('should return platform-wide analytics for super admin', async () => {
-        mockedPrisma.store.count.mockResolvedValueOnce(50); // totalStores
-        mockedPrisma.store.count.mockResolvedValueOnce(45); // activeStores
-        mockedPrisma.order.count.mockResolvedValue(1000);
-        mockedPrisma.order.aggregate.mockResolvedValue({ _sum: { total: 1000000 } } as any);
-        mockedPrisma.supportTicket.count.mockResolvedValue(20);
-        mockedPrisma.alert.count.mockResolvedValue(3);
-        mockedPrisma.$queryRaw.mockResolvedValueOnce([]); // storeGrowth
-        mockedPrisma.$queryRaw.mockResolvedValueOnce([]); // topStores
-        mockedAnomaly.getMetricHistory.mockResolvedValue([]);
-        mockedAnomaly.getRecentAlerts.mockResolvedValue([]);
+      mockedPrisma.store.count.mockResolvedValueOnce(50); // totalStores
+      mockedPrisma.store.count.mockResolvedValueOnce(45); // activeStores
+      mockedPrisma.order.count.mockResolvedValue(1000);
+      mockedPrisma.order.aggregate.mockResolvedValue({ _sum: { total: 1000000 } } as any);
+      mockedPrisma.supportTicket.count.mockResolvedValue(20);
+      mockedPrisma.alert.count.mockResolvedValue(3);
+      mockedPrisma.$queryRaw.mockResolvedValueOnce([]); // storeGrowth
+      mockedPrisma.$queryRaw.mockResolvedValueOnce([]); // topStores
+      mockedAnomaly.getMetricHistory.mockResolvedValue([]);
+      mockedAnomaly.getRecentAlerts.mockResolvedValue([]);
 
-        const res = await request(app).get('/super/overview');
+      const res = await request(app).get('/super/overview');
 
-        expect(res.status).toBe(200);
-        expect(res.body.overview.totalStores).toBe(50);
-        expect(res.body.overview.activeStores).toBe(45);
-        expect(res.body.overview.totalRevenue).toBe(1000000);
-        expect(mockedAnomaly.getRecentAlerts).toHaveBeenCalledWith(10);
+      expect(res.status).toBe(200);
+      expect(res.body.overview.totalStores).toBe(50);
+      expect(res.body.overview.activeStores).toBe(45);
+      expect(res.body.overview.totalRevenue).toBe(1000000);
+      expect(mockedAnomaly.getRecentAlerts).toHaveBeenCalledWith(10);
     });
   });
 
@@ -98,7 +102,7 @@ describe('Analytics Routes', () => {
     it('should call getMetricHistory with correct params', async () => {
       mockedAnomaly.getMetricHistory.mockResolvedValue([{ value: 1, timestamp: new Date() }]);
       const res = await request(app).get('/metrics/error_rate?hours=48&storeId=test-store');
-      
+
       expect(res.status).toBe(200);
       expect(mockedAnomaly.getMetricHistory).toHaveBeenCalledWith('error_rate', 48, 'test-store');
       expect(res.body.length).toBe(1);

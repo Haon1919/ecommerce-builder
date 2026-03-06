@@ -45,7 +45,7 @@ describe('Auth Routes', () => {
     jest.clearAllMocks();
   });
 
-  const storeAdmin = { id: 'user-1', email: 'admin@store.com', password: 'hashed_password', active: true, role: 'OWNER' };
+  const storeAdmin = { id: 'user-1', email: 'admin@store.com', password: 'hashed_password', active: true, roleId: 'role-1', role: { id: 'role-1', name: 'Owner' } };
   const store = { id: 'store-1', slug: 'test-store', name: 'Test Store', active: true };
   const superAdmin = { id: 'sa-1', email: 'super@admin.com', password: 'hashed_password', active: true, name: 'Super' };
 
@@ -134,9 +134,13 @@ describe('Auth Routes', () => {
     it('should register a new user and store', async () => {
       mockedPrisma.store.findUnique.mockResolvedValue(null); // Slug is available
       mockedHash.mockImplementation(() => Promise.resolve('new_hashed_password'));
-      const createdUser = { id: 'new-user', email: 'new@user.com', name: 'New User', role: 'OWNER' };
-      const createdStore = { id: 'new-store', slug: 'new-store', name: 'New Store', users: [createdUser] };
+      const ownerRole = { id: 'role-1', name: 'Owner', storeId: 'new-store', isStatic: true, description: '' };
+      const createdStore = { id: 'new-store', slug: 'new-store', name: 'New Store', roles: [ownerRole] };
       mockedPrisma.store.create.mockResolvedValue(createdStore as any);
+
+      const createdUser = { id: 'new-user', email: 'new@user.com', name: 'New User', roleId: ownerRole.id, role: ownerRole };
+      mockedPrisma.user.create.mockResolvedValue(createdUser as any);
+
       mockedAuthMiddleware.signToken.mockReturnValue('new-user-token');
 
       const res = await request(app).post('/register').send({

@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
-import { requireStoreAdmin } from '../middleware/auth';
+import { requireAuth } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
 import { encrypt, decrypt } from '../services/encryption';
 
 const router = Router();
@@ -43,7 +44,7 @@ router.post('/:storeId/messages', async (req: Request, res: Response): Promise<v
 });
 
 // GET /stores/:storeId/messages - admin list messages
-router.get('/:storeId/messages', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.get('/:storeId/messages', requirePermission('tickets:read'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const { unread, limit = '20', offset = '0' } = req.query;
 
@@ -77,7 +78,7 @@ router.get('/:storeId/messages', requireStoreAdmin, async (req: Request, res: Re
 });
 
 // GET /stores/:storeId/messages/:messageId
-router.get('/:storeId/messages/:messageId', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.get('/:storeId/messages/:messageId', requirePermission('tickets:read'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const messageId = req.params.messageId as string;
 
@@ -109,7 +110,7 @@ router.get('/:storeId/messages/:messageId', requireStoreAdmin, async (req: Reque
 });
 
 // POST /stores/:storeId/messages/:messageId/reply
-router.post('/:storeId/messages/:messageId/reply', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+router.post('/:storeId/messages/:messageId/reply', requirePermission('tickets:write'), async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
   const messageId = req.params.messageId as string;
   const { body } = req.body as { body: string };

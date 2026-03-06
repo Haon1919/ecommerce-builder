@@ -69,7 +69,10 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    const user = await prisma.user.findUnique({ where: { email_storeId: { email, storeId: store.id } } });
+    const user = await prisma.user.findUnique({
+      where: { email_storeId: { email, storeId: store.id } },
+      include: { role: true }
+    });
     if (!user || !user.active) {
       res.status(401).json({ error: 'Invalid credentials' });
       return;
@@ -84,7 +87,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
     const token = signToken({
       sub: user.id,
       email: user.email,
-      role: user.role,
+      role: user.roleId,
       storeId: store.id,
       type: 'USER',
     });
@@ -93,7 +96,7 @@ router.post('/login', async (req: Request, res: Response): Promise<void> => {
 
     res.json({
       token,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role.name },
       store: { id: store.id, slug: store.slug, name: store.name, configured: store.configured },
     });
   } catch (err) {
@@ -126,14 +129,12 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
       data: {
         slug: storeSlug,
         name: storeName,
-        settings: { create: {} },
-        users: {
-          create: {
-            email,
-            password: hashedPassword,
-            name,
-            role: 'OWNER',
-          },
+        roles: {
+          create: [
+            { name: 'Owner', description: 'Full access to all store resources', isStatic: true, permissions: { create: [{ action: '*:*' }] } },
+            { name: 'Product Manager', description: 'Can manage products and inventory', isStatic: true, permissions: { create: [{ action: 'products:*' }] } },
+            { name: 'Support', description: 'Can view orders and manage support tickets', isStatic: true, permissions: { create: [{ action: 'tickets:*' }, { action: 'orders:read' }] } }
+          ]
         },
         pages: {
           createMany: {
@@ -148,21 +149,34 @@ router.post('/register', async (req: Request, res: Response): Promise<void> => {
           },
         },
       },
-      include: { users: true },
+      include: { roles: true },
     });
 
-    const user = store.users[0];
+    const ownerRole = store.roles.find(r => r.name === 'Owner');
+    if (!ownerRole) throw new Error('Owner role was not created');
+
+    const user = await prisma.user.create({
+      data: {
+        email,
+        password: hashedPassword,
+        name,
+        storeId: store.id,
+        roleId: ownerRole.id,
+      },
+      include: { role: true }
+    });
+
     const token = signToken({
       sub: user.id,
       email: user.email,
-      role: user.role,
+      role: user.roleId,
       storeId: store.id,
       type: 'USER',
     });
 
     res.status(201).json({
       token,
-      user: { id: user.id, email: user.email, name: user.name, role: user.role },
+      user: { id: user.id, email: user.email, name: user.name, role: user.role.name },
       store: { id: store.id, slug: store.slug, name: store.name, configured: false },
     });
   } catch (err) {
@@ -193,7 +207,7 @@ router.get('/me', requireAuth, async (req: Request, res: Response): Promise<void
       return;
     }
 
-    res.json({ user });
+    res.json({ user: { ...user, role: user.role?.name } });
   } catch (err) {
     res.status(500).json({ error: 'Internal server error' });
   }

@@ -169,3 +169,24 @@ export const vendorsApi = {
   create: (storeId: string, data: unknown) => api.post(`/stores/${storeId}/vendors`, data).then((r) => r.data),
   update: (storeId: string, vendorId: string, data: unknown) => api.put(`/stores/${storeId}/vendors/${vendorId}`, data).then((r) => r.data),
 };
+
+// ==================== DISCOUNTS ====================
+export const discountsApi = {
+  list: (storeId: string) => api.get(`/stores/${storeId}/discounts`).then((r) => r.data),
+  get: (storeId: string, id: string) => api.get(`/stores/${storeId}/discounts/${id}`).then((r) => r.data),
+  create: (storeId: string, data: unknown) => api.post(`/stores/${storeId}/discounts`, data).then((r) => r.data),
+  update: (storeId: string, id: string, data: unknown) => api.put(`/stores/${storeId}/discounts/${id}`, data).then((r) => r.data),
+  delete: (storeId: string, id: string) => api.delete(`/stores/${storeId}/discounts/${id}`).then((r) => r.data),
+};
+
+// ==================== ROLES & STAFF ====================
+export const rolesApi = {
+  listRoles: (storeId: string) => api.get(`/stores/${storeId}/roles`).then((r) => r.data),
+  createRole: (storeId: string, data: unknown) => api.post(`/stores/${storeId}/roles`, data).then((r) => r.data),
+  updateRole: (storeId: string, roleId: string, data: unknown) => api.put(`/stores/${storeId}/roles/${roleId}`, data).then((r) => r.data),
+  deleteRole: (storeId: string, roleId: string) => api.delete(`/stores/${storeId}/roles/${roleId}`).then((r) => r.data),
+  listStaff: (storeId: string) => api.get(`/stores/${storeId}/staff`).then((r) => r.data),
+  updateStaffRole: (storeId: string, userId: string, roleId: string) =>
+    api.patch(`/stores/${storeId}/staff/${userId}/role`, { roleId }).then((r) => r.data),
+  listPermissions: () => api.get('/stores/permissions').then((r) => r.data),
+};

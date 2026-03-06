@@ -1,7 +1,8 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import multer from 'multer';
-import { requireStoreAdmin, optionalAuth } from '../middleware/auth';
+import { requireAuth, optionalAuth } from '../middleware/auth';
+import { requirePermission } from '../middleware/auth.permission';
 import { requireTier, SubscriptionTier } from '../middleware/tier';
 import { LiveCommerceService } from '../services/live-commerce.service';
 import { logger } from '../utils/logger';
@@ -27,7 +28,7 @@ const uploadSchema = z.object({
 // POST /stores/:storeId/videos
 router.post(
     '/:storeId/videos',
-    requireStoreAdmin,
+    requirePermission('products:write'),
     requireTier(SubscriptionTier.GROWTH),
     upload.single('video'),
     async (req: Request, res: Response): Promise<void> => {
