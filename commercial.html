@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Commercial</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;700;900&display=swap');
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #000;
+            color: #fff;
+            font-family: 'Inter', sans-serif;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .text-frame {
+            position: absolute;
+            font-size: 8vw;
+            font-weight: 900;
+            opacity: 0;
+            letter-spacing: -0.05em;
+            transform: scale(0.85);
+            animation-fill-mode: forwards;
+        }
+
+        /* Apple/Tech style fast pacing */
+        @keyframes popIn {
+            0% { opacity: 0; transform: scale(0.9) translateY(40px); filter: blur(20px); }
+            15% { opacity: 1; transform: scale(1) translateY(0); filter: blur(0px); }
+            85% { opacity: 1; transform: scale(1.05) translateY(0); filter: blur(0px); }
+            100% { opacity: 0; transform: scale(1.1) translateY(-40px); filter: blur(20px); }
+        }
+
+        .frame1 { animation: popIn 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards; animation-delay: 0.5s; }
+        .frame2 { animation: popIn 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards; animation-delay: 2.2s; }
+        .frame3 { animation: popIn 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards; animation-delay: 3.9s; }
+        .frame4 { animation: popIn 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards; animation-delay: 5.3s; }
+        .frame5 { animation: popIn 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards; animation-delay: 6.7s; }
+        
+        .final-frame {
+            position: absolute;
+            opacity: 0;
+            animation: fadeIn 2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+            animation-delay: 8.5s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        @keyframes fadeIn {
+            0% { opacity: 0; transform: scale(0.9); filter: blur(20px); }
+            100% { opacity: 1; transform: scale(1); filter: blur(0px); }
+        }
+
+        .logo {
+            font-size: 8vw;
+            font-weight: 900;
+            background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 20px;
+            letter-spacing: -0.04em;
+        }
+
+        .tagline {
+            font-size: 2.5vw;
+            font-weight: 400;
+            color: #a0a0a0;
+            letter-spacing: -0.02em;
+        }
+
+        .features {
+            margin-top: 40px;
+            display: flex;
+            gap: 30px;
+            opacity: 0;
+            animation: featureFade 1s ease-out forwards;
+            animation-delay: 10s;
+        }
+
+        .feature {
+            font-size: 1.2vw;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-weight: 700;
+        }
+
+        @keyframes featureFade {
+            0% { opacity: 0; transform: translateY(10px); }
+            100% { opacity: 1; transform: translateY(0); }
+        }
+
+        .progress-bar {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #00f2fe, #4facfe);
+            width: 0%;
+            animation: progress 12s linear forwards;
+        }
+
+        @keyframes progress {
+            0% { width: 0%; }
+            100% { width: 100%; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="text-frame frame1">You have a vision.</div>
+        <div class="text-frame frame2">But building a store...</div>
+        <div class="text-frame frame3">Takes time.</div>
+        <div class="text-frame frame4">Takes code.</div>
+        <div class="text-frame frame5">Not anymore.</div>
+        
+        <div class="final-frame">
+            <div class="logo">E-Commerce Builder</div>
+            <div class="tagline">The ultimate platform for modern brands.</div>
+            <div class="features">
+                <div class="feature">Blazing Fast</div>
+                <div class="feature">Fully Custom</div>
+                <div class="feature">Zero Setup</div>
+            </div>
+        </div>
+    </div>
+    <div class="progress-bar"></div>
+</body>
+</html>

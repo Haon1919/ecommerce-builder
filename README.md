@@ -1,5 +1,7 @@
 # ecommerce-builder
 
+![E-Commerce Builder Commercial](./tutorials/commercial.webp)
+
 A white-label, multi-tenant B2B SaaS platform for launching and managing modern e-commerce stores. Built on a monorepo architecture with three Next.js 14 frontends and a single Express.js backend API.
 
 ---
