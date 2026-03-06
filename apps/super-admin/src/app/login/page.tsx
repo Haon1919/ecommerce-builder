@@ -22,7 +22,7 @@ export default function SuperAdminLogin() {
         return;
       }
       localStorage.setItem('super_admin_token', data.token);
-      router.push('/dashboard');
+      router.push('/');
     } catch (err: unknown) {
       setError((err as { response?: { data?: { error?: string } } })?.response?.data?.error ?? 'Login failed');
     } finally {
