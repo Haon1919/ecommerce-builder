@@ -24,9 +24,10 @@ model Store {
   configured   Boolean        @default(false)
   gaId         String? // Google Analytics Measurement ID
   customDomain String?        @unique
-  active       Boolean        @default(true)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
+  active       Boolean          @default(true)
+  tier         SubscriptionTier @default(STARTER)
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
 
   users           User[]
   pages           Page[]
@@ -43,6 +44,12 @@ model Store {
   experiments     Experiment[]
 
   @@index([slug])
+}
+
+enum SubscriptionTier {
+  STARTER
+  GROWTH
+  ENTERPRISE
 }
 
 enum ThemeFramework {

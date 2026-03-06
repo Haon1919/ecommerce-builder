@@ -3,6 +3,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth';
 import Image from 'next/image';
+import Link from 'next/link';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -86,9 +87,9 @@ export default function LoginPage() {
           <div className="mt-6 pt-6 border-t border-gray-100 text-center">
             <p className="text-sm text-gray-500">
               Don&apos;t have a store?{' '}
-              <a href="/register" className="text-primary-600 font-medium hover:underline">
+              <Link href="/register" className="text-primary-600 font-medium hover:underline">
                 Create one
-              </a>
+              </Link>
             </p>
           </div>
         </div>

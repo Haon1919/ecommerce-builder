@@ -8,6 +8,7 @@ export interface Store {
   primaryColor: string;
   configured: boolean;
   gaId?: string;
+  tier: 'STARTER' | 'GROWTH' | 'ENTERPRISE';
   settings?: StoreSettings;
 }
 

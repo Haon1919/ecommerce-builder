@@ -209,7 +209,16 @@ resource "google_service_networking_connection" "private_vpc_connection" {
   depends_on              = [google_project_service.required_apis]
 }
 
+resource "google_compute_subnetwork" "serverless_subnet" {
+  count         = var.low_cost_mode ? 1 : 0
+  name          = "serverless-subnet"
+  ip_cidr_range = "10.0.0.0/28"
+  region        = var.region
+  network       = google_compute_network.vpc.id
+}
+
 resource "google_vpc_access_connector" "connector" {
+  count         = var.low_cost_mode ? 0 : 1
   name          = "ecommerce-connector"
   region        = var.region
   ip_cidr_range = "10.8.0.0/28"
@@ -232,9 +241,23 @@ resource "google_cloud_run_v2_service" "api" {
   template {
     service_account = google_service_account.app_sa.email
 
-    vpc_access {
-      connector = google_vpc_access_connector.connector.id
-      egress    = "ALL_TRAFFIC"
+    dynamic "vpc_access" {
+      for_each = var.low_cost_mode ? [] : [1]
+      content {
+        connector = google_vpc_access_connector.connector[0].id
+        egress    = "ALL_TRAFFIC"
+      }
+    }
+
+    dynamic "vpc_access" {
+      for_each = var.low_cost_mode ? [1] : []
+      content {
+        network_interfaces {
+          network    = google_compute_network.vpc.name
+          subnetwork = google_compute_subnetwork.serverless_subnet[0].name
+        }
+        egress = "ALL_TRAFFIC"
+      }
     }
 
     scaling {
@@ -456,9 +479,23 @@ resource "google_cloud_run_v2_job" "performance_test" {
       service_account = google_service_account.app_sa.email
 
       # Tests might need to hit private database endpoints in the future
-      vpc_access {
-        connector = google_vpc_access_connector.connector.id
-        egress    = "ALL_TRAFFIC"
+      dynamic "vpc_access" {
+        for_each = var.low_cost_mode ? [] : [1]
+        content {
+          connector = google_vpc_access_connector.connector[0].id
+          egress    = "ALL_TRAFFIC"
+        }
+      }
+
+      dynamic "vpc_access" {
+        for_each = var.low_cost_mode ? [1] : []
+        content {
+          network_interfaces {
+            network    = google_compute_network.vpc.name
+            subnetwork = google_compute_subnetwork.serverless_subnet[0].name
+          }
+          egress = "ALL_TRAFFIC"
+        }
       }
 
       containers {

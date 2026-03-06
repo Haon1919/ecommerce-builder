@@ -44,7 +44,7 @@ router.get('/:storeId', async (req: Request, res: Response): Promise<void> => {
     select: {
       id: true, slug: true, name: true, description: true,
       logoUrl: true, faviconUrl: true, theme: true, primaryColor: true,
-      configured: true, gaId: true, active: true,
+      configured: true, gaId: true, active: true, tier: true,
       settings: {
         select: {
           contactEmail: true, shippingPolicy: true, returnPolicy: true,
@@ -73,7 +73,7 @@ router.get('/slug/:slug', async (req: Request, res: Response): Promise<void> => 
     select: {
       id: true, slug: true, name: true, description: true,
       logoUrl: true, faviconUrl: true, theme: true, primaryColor: true,
-      configured: true, gaId: true,
+      configured: true, gaId: true, tier: true,
       settings: {
         select: {
           contactEmail: true, currency: true, taxRate: true,
@@ -181,7 +181,7 @@ router.get('/', requireSuperAdmin, async (req: Request, res: Response): Promise<
       skip: parseInt(offset as string),
       select: {
         id: true, slug: true, name: true, active: true, configured: true,
-        theme: true, createdAt: true,
+        theme: true, tier: true, createdAt: true,
         _count: { select: { products: true, orders: true, users: true } },
       },
     }),

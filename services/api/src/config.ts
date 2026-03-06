@@ -108,6 +108,10 @@ export const config = {
     level: optional('LOG_LEVEL', 'info'),
     structured: optional('STRUCTURED_LOGGING', 'false') === 'true',
   },
+
+  features: {
+    bypassTierChecks: optional('BYPASS_TIER_CHECKS', 'false') === 'true',
+  },
 } as const;
 
 if (config.env === 'production' && config.jwt.secret.length < 64) {

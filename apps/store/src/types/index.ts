@@ -14,6 +14,7 @@ export interface StoreInfo {
   theme: 'TAILWIND' | 'BOOTSTRAP' | 'BULMA' | 'PICO';
   primaryColor: string;
   gaId?: string;
+  tier: 'STARTER' | 'GROWTH' | 'ENTERPRISE';
   settings?: {
     currency: string;
     taxRate: number;

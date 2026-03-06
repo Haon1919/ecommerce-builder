@@ -67,3 +67,9 @@ variable "max_instances" {
   type        = number
   default     = 10
 }
+
+variable "low_cost_mode" {
+  description = "Enable low-cost tier (Under $10/mo) by utilizing Direct VPC Egress instead of a dedicated VPC Connector"
+  type        = bool
+  default     = true
+}

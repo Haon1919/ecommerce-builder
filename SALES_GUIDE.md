@@ -63,6 +63,35 @@ When a prospect signs up, they interact with three main pillars:
 
 ---
 
+## 💎 Subscription & Pricing Tiers
+
+To maximize revenue and cater to merchants at different stages of growth, the platform features a multi-tiered subscription model. Advanced capabilities are systematically gated to encourage enterprise upsells.
+
+### 1. Starter Tier
+The foundation for emerging D2C brands.
+- **Includes**: Lightning-fast Next.js storefronts, basic drag-and-drop page builder, standard analytics, and secure checkout.
+- **Positioning**: "Everything you need to launch a high-converting store without the bloat of legacy platforms."
+
+### 2. Growth Tier
+Designed for scaling brands focused on content-driven commerce.
+- **Includes Everything in Starter, plus**:
+  - **Native AR & 3D Previews**
+  - **Live Commerce & Shoppable Short-Form Video** (Host TikTok/Reels-style shoppable feeds natively)
+  - **Headless Edge APIs** (Connect your store to IoT devices, Discord bots, or external CMS systems)
+  - **Predictive Inventory & Automated Dropshipping** (AI-driven stock alerts and automatic supplier re-orders)
+- **Positioning**: "Turn your store into an interactive, omnichannel content engine that automatically manages its own supply chain."
+
+### 3. Enterprise Tier
+The ultimate unified commerce system for high-volume retailers and B2B operators.
+- **Includes Everything in Growth, plus**:
+  - **Generative UI & Hyper-Personalized Storefronts** (1-to-1 dynamic layout generation via Gemini for every shopper)
+  - **Agentic Checkout** (Zero-click autonomous shopping—customers can complete orders purely via conversational Voice/Text)
+  - **B2B Multi-Vendor Marketplace Infrastructure** (Invite sub-vendors to sell on your platform with split-payouts via Stripe Connect)
+  - **Proactive KL-Divergence Anomaly Detection**
+- **Positioning**: "A complete commerce operating system that replaces your website with an autonomous, personalized sales agent capable of running a multi-vendor enterprise."
+
+---
+
 ## 💡 How to Demo the Platform
 
 To run a highly effective demo, follow this sequence:

@@ -84,11 +84,11 @@ async function buildAdminSystemPrompt(storeId: string): Promise<string> {
     const currency = store.settings?.currency ?? 'USD';
 
     const ordersText = recentOrders.length > 0
-        ? recentOrders.map((o) => `- ${o.orderNumber}: ${Number(o.total)} ${o.currency} (${o.status}) on ${o.createdAt.toLocaleDateString()}`).join('\n')
+        ? recentOrders.map((o: any) => `- ${o.orderNumber}: ${Number(o.total)} ${o.currency} (${o.status}) on ${o.createdAt.toLocaleDateString()}`).join('\n')
         : 'No recent orders.';
 
     const lowStockText = lowStockProducts.length > 0
-        ? lowStockProducts.map((p) => `- ${p.name} (ID: ${p.id}): ${p.stock} left | ${p.category ?? 'Uncategorized'}`).join('\n')
+        ? lowStockProducts.map((p: any) => `- ${p.name} (ID: ${p.id}): ${p.stock} left | ${p.category ?? 'Uncategorized'}`).join('\n')
         : 'No low-stock products.';
 
     const prompt = `You are an expert "Store Co-Pilot", an administrative AI assistant for the owner of the store "${store.name}".

@@ -143,6 +143,17 @@ npm run db:migrate     # runs prisma migrate deploy
 npm run db:seed        # creates super admin + demo store with products
 ```
 
+If you are setting up environments for specific clients/demos, you can use the `--store` flag to seed specialized products and orders:
+
+```bash
+npm run db:seed -- --store=the-jaunty-lady
+# Available specific presets:
+#  --store=the-jaunty-lady
+#  --store=ivy-rose-boutique
+#  --store=country-charm-boutique
+#  --store=heidijhale-designs
+```
+
 After seeding you'll have:
 - **Super admin:** email/password from `SUPER_ADMIN_EMAIL` / `SUPER_ADMIN_PASSWORD`
 - **Demo store:** slug `demo-store`, admin from `DEMO_STORE_ADMIN_EMAIL` / `DEMO_STORE_ADMIN_PASSWORD`
