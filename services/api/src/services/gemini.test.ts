@@ -127,6 +127,12 @@ describe('Gemini Service', () => {
             ]);
             expect(result.text).toBe('A friendly response');
         });
+
+        it('should use a custom API key if provided', async () => {
+            const result = await processChat(mockStoreId, 'Hello', [], 'custom-store-key');
+            expect(result.text).toBe('A friendly response');
+            expect(GoogleGenerativeAI).toHaveBeenCalledWith('custom-store-key');
+        });
     });
 
     describe('getEventRecommendations', () => {
@@ -166,6 +172,62 @@ describe('Gemini Service', () => {
                 products: [],
                 summary: "I couldn't generate recommendations. Please browse our products directly.",
             });
+        });
+    });
+
+    describe('generateStoreLayout', () => {
+        const { generateStoreLayout } = require('./gemini');
+
+        it('should generate a valid JSON layout', async () => {
+            mockGenerateContentLocal.mockResolvedValueOnce({
+                response: { text: () => '```json\n[\n  {"id": "hero-1", "type": "HeroSection", "order": 0, "props": {"title": "Welcome"}}\n]\n```' }
+            });
+
+            const result = await generateStoreLayout(mockStoreId, 'Make it modern');
+
+            expect(result).toEqual([
+                { id: 'hero-1', type: 'HeroSection', order: 0, props: { title: 'Welcome' } }
+            ]);
+            expect(mockGenerateContentLocal).toHaveBeenCalled();
+            expect(prisma.store.findUnique).toHaveBeenCalledWith({ where: { id: mockStoreId } });
+        });
+
+        it('should handle naked JSON arrays without markdown blocks', async () => {
+            mockGenerateContentLocal.mockResolvedValueOnce({
+                response: { text: () => '[\n  {"id": "hero-1", "type": "HeroSection", "order": 0, "props": {"title": "Welcome"}}\n]' }
+            });
+
+            const result = await generateStoreLayout(mockStoreId);
+
+            expect(result).toEqual([
+                { id: 'hero-1', type: 'HeroSection', order: 0, props: { title: 'Welcome' } }
+            ]);
+        });
+
+        it('should extract JSON if the model returns extra text', async () => {
+            mockGenerateContentLocal.mockResolvedValueOnce({
+                response: { text: () => 'Here is your layout:\n[\n  {"id": "hero-1", "type": "HeroSection"}\n]\nEnjoy!' }
+            });
+
+            const result = await generateStoreLayout(mockStoreId);
+
+            expect(result).toEqual([
+                { id: 'hero-1', type: 'HeroSection' }
+            ]);
+        });
+
+        it('should throw an error if store is not found', async () => {
+            (prisma.store.findUnique as jest.Mock).mockResolvedValueOnce(null);
+
+            await expect(generateStoreLayout('unknown-store')).rejects.toThrow('Store not found');
+        });
+
+        it('should throw an error if model fails or returns invalid JSON', async () => {
+            mockGenerateContentLocal.mockResolvedValueOnce({
+                response: { text: () => 'Not a JSON block' }
+            });
+
+            await expect(generateStoreLayout(mockStoreId)).rejects.toThrow('Failed to generate layout');
         });
     });
 });

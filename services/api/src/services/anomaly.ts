@@ -16,6 +16,7 @@
 import { prisma } from '../db';
 import { logger } from '../utils/logger';
 import { config } from '../config';
+import axios from 'axios';
 
 const EPSILON = 1e-10; // Prevent log(0)
 
@@ -182,6 +183,73 @@ export async function runAnomalyChecks(): Promise<void> {
   for (const result of results) {
     if (result.status === 'rejected') {
       logger.error('Anomaly check failed', { error: result.reason });
+    }
+  }
+
+  try {
+    await checkProductInventoryAnomalies();
+  } catch (e) {
+    logger.error('checkProductInventoryAnomalies failed', { error: e });
+  }
+}
+
+/**
+ * Predictive Inventory Monitoring
+ * Tracks product stock velocity and triggers emergency alert webhooks
+ * if an anomalous sales spike will deplete stock within 48 hours.
+ */
+async function checkProductInventoryAnomalies() {
+  const products = await prisma.product.findMany({
+    where: { trackStock: true, stock: { gt: 0 }, active: true },
+    include: { store: { include: { settings: true } } },
+  });
+
+  const now = new Date();
+  const windowStart = new Date(now.getTime() - config.anomaly.snapshotIntervalMs * 5);
+
+  for (const product of products) {
+    const metricName = `product_sales:${product.id}`;
+
+    // 1. Check if there's an anomaly compared to 7 days
+    const result = await detectAnomaly(metricName, product.storeId);
+    if (!result.isAnomaly) continue;
+
+    // 2. Gather total sales in current 5-min window
+    const recentSales = await prisma.metricSnapshot.aggregate({
+      where: { metric: metricName, timestamp: { gte: windowStart } },
+      _sum: { value: true },
+    });
+
+    const totalSoldLast5Mins = recentSales._sum.value || 0;
+    if (totalSoldLast5Mins === 0) continue;
+
+    const salesPerMinute = totalSoldLast5Mins / 5;
+    const minutesUntilDepletion = product.stock / salesPerMinute;
+
+    if (minutesUntilDepletion <= 48 * 60) {
+      // Depletes within 48 hours
+      const store = product.store;
+      if (store.tier === 'GROWTH' || store.tier === 'ENTERPRISE') {
+        const webhooks = (store.settings as any)?.supplierWebhookUrls || [];
+        for (const url of webhooks) {
+          try {
+            await axios.post(url, {
+              event: 'PREDICTIVE_INVENTORY_ALERT',
+              productId: product.id,
+              productName: product.name,
+              sku: product.sku,
+              currentStock: product.stock,
+              salesVelocityPerMinute: salesPerMinute,
+              estimatedDepletionHours: (minutesUntilDepletion / 60).toFixed(2),
+              baselineKlDivergence: result.klDivergence,
+              message: `Anomalous sales spike detected. Stock will deplete in ${(minutesUntilDepletion / 60).toFixed(1)} hours.`,
+            });
+            logger.info(`Fired supplier webhook for product ${product.id} to ${url}`);
+          } catch (e) {
+            logger.error(`Failed to fire supplier webhook to ${url}: ${e}`);
+          }
+        }
+      }
     }
   }
 }

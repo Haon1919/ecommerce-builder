@@ -29,6 +29,9 @@ import logsRouter, { setSocketIO } from './routes/logs';
 import experimentsRouter from './routes/experiments';
 import companiesRouter from './routes/companies';
 import pricelistsRouter from './routes/pricelists';
+import vendorsRouter from './routes/vendors';
+import liveCommerceRouter from './routes/live-commerce';
+import edgeRouter from './routes/edge';
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -144,9 +147,12 @@ app.use('/api/stores', analyticsRouter);
 app.use('/api/stores', experimentsRouter);
 app.use('/api/stores', companiesRouter);
 app.use('/api/stores', pricelistsRouter);
+app.use('/api/stores', vendorsRouter);
+app.use('/api/stores', liveCommerceRouter);
 app.use('/api/tickets', ticketsRouter);      // Super admin ticket access
 app.use('/api/analytics', analyticsRouter);  // Super admin analytics
 app.use('/api/logs', logsRouter);
+app.use('/api/edge', edgeRouter);
 
 // Health check
 app.get('/health', (_, res) => {

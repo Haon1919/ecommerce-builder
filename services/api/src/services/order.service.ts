@@ -5,22 +5,23 @@ import { logger } from '../utils/logger';
 import { recordMetric } from './anomaly';
 import { NotFoundError, InsufficientStockError } from '../errors';
 import { JwtPayload } from '../middleware/auth';
+import { PaymentService } from './payment';
 
 interface OrderItem {
-  productId: string;
-  quantity: number;
-  variantInfo?: unknown;
+    productId: string;
+    quantity: number;
+    variantInfo?: unknown;
 }
 
 interface CreateOrderData {
-  storeId: string;
-  customerEmail: string;
-  customerName: string;
-  customerPhone?: string;
-  shippingAddress: Record<string, unknown>;
-  items: OrderItem[];
-  notes?: string;
-  paymentTerms?: string;
+    storeId: string;
+    customerEmail: string;
+    customerName: string;
+    customerPhone?: string;
+    shippingAddress: Record<string, unknown>;
+    items: OrderItem[];
+    notes?: string;
+    paymentTerms?: string;
 }
 
 export const OrderService = {
@@ -79,7 +80,18 @@ export const OrderService = {
         const shipping = freeShippingAbove && subtotal >= freeShippingAbove ? 0 : flatShipping;
         const total = subtotal + tax + shipping;
 
-        // Encrypt PII — create order first, then derive unique order number from its CUID
+        // Group items by vendor
+        const vendorGroups = new Map<string | null, any[]>();
+        for (const item of data.items) {
+            const product = productMap.get(item.productId)!;
+            const vId = product.vendorId || null;
+            if (!vendorGroups.has(vId)) vendorGroups.set(vId, []);
+            vendorGroups.get(vId)!.push(item);
+        }
+
+        const isSplit = vendorGroups.size > 1;
+
+        // Encrypt PII — create parent order first
         const order = await prisma.order.create({
             data: {
                 storeId: storeId,
@@ -106,6 +118,7 @@ export const OrderService = {
                             quantity: item.quantity,
                             price: effectivePrice,
                             variantInfo: item.variantInfo ?? null,
+                            vendorId: product.vendorId || null,
                         };
                     }),
                 },
@@ -113,16 +126,105 @@ export const OrderService = {
             include: { items: { include: { product: { select: { name: true, images: true } } } } },
         });
 
-        // Derive collision-free order number from the order's own CUID
         const orderNumber = `ORD-${new Date().getFullYear()}-${order.id.slice(-6).toUpperCase()}`;
         await prisma.order.update({ where: { id: order.id }, data: { orderNumber } });
 
+        // Create sub-orders if split
+        if (isSplit) {
+            const payoutItems = [];
+            const vendorIds = Array.from(vendorGroups.keys()).filter(Boolean) as string[];
+            const vendors = await prisma.vendor.findMany({ where: { id: { in: vendorIds } } });
+            const vendorMap = new Map(vendors.map(v => [v.id, v]));
+
+            for (const [vId, groupItems] of vendorGroups.entries()) {
+                let groupSubtotal = 0;
+                for (const item of groupItems) {
+                    const product = productMap.get(item.productId)!;
+                    const override = pricesOverride[item.productId];
+                    const effPrice = override ? Number(override) : Number(product.price);
+                    groupSubtotal += effPrice * item.quantity;
+                }
+                const groupTax = groupSubtotal * (taxRate / 100);
+                const groupShipping = 0; // allocate shipping to parent
+                const groupTotal = groupSubtotal + groupTax + groupShipping;
+
+                const subOrder = await prisma.order.create({
+                    data: {
+                        storeId,
+                        parentOrderId: order.id,
+                        vendorId: vId,
+                        orderNumber: 'PENDING',
+                        customerEmailEnc: order.customerEmailEnc,
+                        customerNameEnc: order.customerNameEnc,
+                        customerPhoneEnc: order.customerPhoneEnc,
+                        shippingAddrEnc: order.shippingAddrEnc,
+                        subtotal: groupSubtotal,
+                        tax: groupTax,
+                        shipping: groupShipping,
+                        total: groupTotal,
+                        notes: data.notes,
+                        companyId,
+                        paymentTerms: companyId ? data.paymentTerms : null,
+                        items: {
+                            create: groupItems.map((item: any) => {
+                                const product = productMap.get(item.productId)!;
+                                const override = pricesOverride[item.productId];
+                                const effPrice = override ? Number(override) : Number(product.price);
+                                return {
+                                    product: { connect: { id: item.productId } },
+                                    productName: product.name,
+                                    quantity: item.quantity,
+                                    price: effPrice,
+                                    variantInfo: item.variantInfo ?? null,
+                                    vendorId: vId,
+                                };
+                            })
+                        }
+                    }
+                });
+
+                const subOrderNumber = `ORD-${new Date().getFullYear()}-${subOrder.id.slice(-6).toUpperCase()}`;
+                await prisma.order.update({ where: { id: subOrder.id }, data: { orderNumber: subOrderNumber } });
+
+                if (vId) {
+                    const vendor = vendorMap.get(vId);
+                    if (vendor && vendor.payoutEnabled && vendor.stripeAccountIdEnc) {
+                        payoutItems.push({
+                            vendorStripeAccountId: decrypt(vendor.stripeAccountIdEnc),
+                            amount: Math.round(groupTotal * 100),
+                            currency: settings?.currency || 'usd',
+                        });
+                    }
+                }
+            }
+
+            if (payoutItems.length > 0) {
+                await PaymentService.processSplitPayout(payoutItems);
+            }
+        } else {
+            // single vendor update
+            const vId = Array.from(vendorGroups.keys())[0];
+            if (vId) {
+                await prisma.order.update({ where: { id: order.id }, data: { vendorId: vId } });
+                const vendor = await prisma.vendor.findUnique({ where: { id: vId } });
+                if (vendor && vendor.payoutEnabled && vendor.stripeAccountIdEnc) {
+                    await PaymentService.processSplitPayout([{
+                        vendorStripeAccountId: decrypt(vendor.stripeAccountIdEnc),
+                        amount: Math.round(total * 100),
+                        currency: settings?.currency || 'usd'
+                    }]);
+                }
+            }
+        }
+
         // Decrement stock
         await Promise.all(
-            data.items.map((item: any) => {
+            data.items.map(async (item: any) => {
                 const product = productMap.get(item.productId)!;
-                if (!product.trackStock) return Promise.resolve();
-                return prisma.product.update({
+                // Record sales metric for predictive inventory
+                await recordMetric(`product_sales:${product.id}`, item.quantity, storeId, { productId: product.id });
+                if (!product.trackStock) return;
+                await prisma.product.update({
                     where: { id: item.productId },
                     data: { stock: { decrement: item.quantity } },
                 });

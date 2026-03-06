@@ -7,5 +7,39 @@
     "dependencies": {
         "react": "^18.0.0",
         "react-dom": "^18.0.0"
+    },
+    "devDependencies": {
+        "@chromatic-com/storybook": "^5.0.1",
+        "@storybook/addon-a11y": "^10.2.16",
+        "@storybook/addon-docs": "^10.2.16",
+        "@storybook/addon-onboarding": "^10.2.16",
+        "@storybook/addon-vitest": "^10.2.16",
+        "@storybook/react-vite": "^10.2.16",
+        "@storybook/test": "^8.6.15",
+        "@testing-library/jest-dom": "^6.9.1",
+        "@testing-library/react": "^16.3.2",
+        "@testing-library/user-event": "^14.6.1",
+        "@types/jest": "^30.0.0",
+        "@vitest/browser-playwright": "^4.0.18",
+        "@vitest/coverage-v8": "^4.0.18",
+        "autoprefixer": "^10.4.27",
+        "clsx": "^2.1.1",
+        "identity-obj-proxy": "^3.0.0",
+        "jest": "^30.2.0",
+        "jest-environment-jsdom": "^30.2.0",
+        "lucide-react": "^0.460.0",
+        "playwright": "^1.58.2",
+        "postcss": "^8.5.8",
+        "storybook": "^10.2.16",
+        "tailwind-merge": "^3.5.0",
+        "tailwindcss": "^3.4.19",
+        "ts-jest": "^29.4.6",
+        "typescript": "^5.9.3",
+        "vitest": "^4.0.18"
+    },
+    "scripts": {
+        "storybook": "storybook dev -p 6006",
+        "build-storybook": "storybook build",
+        "test": "jest"
     }
 }

@@ -64,6 +64,11 @@ export const storeApi = {
   configure: (storeId: string) => api.post(`/stores/${storeId}/configure`).then((r) => r.data),
   adminChat: (storeId: string, payload: { message: string; history?: any[] }) =>
     api.post(`/stores/${storeId}/admin-chat`, payload).then((r) => r.data),
+  apiKeys: {
+    list: (storeId: string) => api.get(`/stores/${storeId}/api-keys`).then((r) => r.data),
+    create: (storeId: string, name: string) => api.post(`/stores/${storeId}/api-keys`, { name }).then((r) => r.data),
+    revoke: (storeId: string, keyId: string) => api.delete(`/stores/${storeId}/api-keys/${keyId}`).then((r) => r.data),
+  },
 };
 
 // ==================== PAGES ====================
@@ -155,4 +160,12 @@ export const pricelistsApi = {
   create: (storeId: string, data: unknown) => api.post(`/stores/${storeId}/pricelists`, data).then((r) => r.data),
   update: (storeId: string, priceListId: string, data: unknown) => api.put(`/stores/${storeId}/pricelists/${priceListId}`, data).then((r) => r.data),
   delete: (storeId: string, priceListId: string) => api.delete(`/stores/${storeId}/pricelists/${priceListId}`).then((r) => r.data),
+};
+
+// ==================== VENDORS ====================
+export const vendorsApi = {
+  list: (storeId: string) => api.get(`/stores/${storeId}/vendors`).then((r) => r.data),
+  get: (storeId: string, vendorId: string) => api.get(`/stores/${storeId}/vendors/${vendorId}`).then((r) => r.data),
+  create: (storeId: string, data: unknown) => api.post(`/stores/${storeId}/vendors`, data).then((r) => r.data),
+  update: (storeId: string, vendorId: string, data: unknown) => api.put(`/stores/${storeId}/vendors/${vendorId}`, data).then((r) => r.data),
 };

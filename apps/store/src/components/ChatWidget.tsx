@@ -9,7 +9,7 @@
  */
 import { useState, useRef, useEffect, useCallback } from 'react';
 import Image from 'next/image';
-import { MessageCircle, X, Send, Minimize2, ShoppingCart, Mic, Square } from 'lucide-react';
+import { MessageCircle, X, Send, Minimize2, ShoppingCart, Mic, Square, CheckCircle } from 'lucide-react';
 import { chatApi, productsApi } from '@/lib/api';
 import { useCartStore } from '@/lib/cart';
 import { useRouter } from 'next/navigation';
@@ -30,6 +30,8 @@ interface ChatAction {
   quantity?: number;
   page?: string;
   category?: string;
+  orderNumber?: string;
+  total?: number;
 }
 
 interface ProductRec {
@@ -309,6 +311,20 @@ export function ChatWidget({ storeId, storeName, storeSlug }: Props) {
                           </button>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Process Checkout Confirmation */}
+                  {msg.action?.type === 'PROCESS_CHECKOUT' && msg.action.orderNumber && (
+                    <div className="mt-3 space-y-2 bg-green-50 rounded-xl p-3 border border-green-100">
+                      <div className="flex items-center gap-2 text-green-700 font-medium">
+                        <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                        <span>Order Confirmed</span>
+                      </div>
+                      <div className="text-sm text-green-800">
+                        <p>Order #: {msg.action.orderNumber}</p>
+                        <p>Total: ${Number(msg.action.total).toFixed(2)}</p>
+                      </div>
                     </div>
                   )}
                 </div>

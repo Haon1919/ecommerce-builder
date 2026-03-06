@@ -59,3 +59,6 @@ services/api/prisma/seed.d.ts.map
 
 # Uploads
 uploads/
+
+*storybook.log
+storybook-static

@@ -5,6 +5,8 @@ import { PrismaClient } from '@prisma/client';
 import pagesRouter from './pages';
 import { prisma } from '../db';
 import * as AuthMiddleware from '../middleware/auth';
+import * as GeminiService from '../services/gemini';
+import { SubscriptionTier } from '../middleware/tier';
 
 // --- Mocks ---
 jest.mock('../db', () => ({
@@ -12,8 +14,9 @@ jest.mock('../db', () => ({
   prisma: mockDeep<PrismaClient>(),
 }));
 jest.mock('../middleware/auth');
+jest.mock('../services/gemini');
 jest.mock('../utils/logger');
-jest.mock('../config', () => ({ config: { logging: { level: 'info' } } }));
+jest.mock('../config', () => ({ config: { logging: { level: 'info' }, features: { bypassTierChecks: false } } }));
 
 // --- Test Setup ---
 const app = express();
@@ -29,6 +32,7 @@ mockedAuth.optionalAuth.mockImplementation((req: any, res: any, next: any) => {
 app.use('/', pagesRouter);
 
 const mockedPrisma = prisma as unknown as DeepMockProxy<PrismaClient>;
+const mockedGemini = GeminiService as jest.Mocked<typeof GeminiService>;
 
 describe('Pages Routes', () => {
   beforeEach(() => {
@@ -48,6 +52,47 @@ describe('Pages Routes', () => {
       expect(res.status).toBe(200);
       expect(res.body.length).toBe(1);
       expect(res.body[0].slug).toBe('home');
+    });
+  });
+
+  // --- GET /:storeId/layout/generate ---
+  describe('GET /:storeId/layout/generate', () => {
+    it('should return 403 for STARTER tier', async () => {
+      mockedPrisma.store.findUnique.mockResolvedValue({ id: storeId, tier: SubscriptionTier.STARTER } as any);
+      const res = await request(app).get(`/${storeId}/layout/generate`);
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({
+        error: 'Subscription tier too low',
+        requiredTier: 'ENTERPRISE',
+        currentTier: 'STARTER',
+      });
+    });
+
+    it('should return 403 for GROWTH tier', async () => {
+      mockedPrisma.store.findUnique.mockResolvedValue({ id: storeId, tier: SubscriptionTier.GROWTH } as any);
+      const res = await request(app).get(`/${storeId}/layout/generate`);
+      expect(res.status).toBe(403);
+      expect(res.body).toEqual({
+        error: 'Subscription tier too low',
+        requiredTier: 'ENTERPRISE',
+        currentTier: 'GROWTH',
+      });
+    });
+
+    it('should return 404 if the store is not found', async () => {
+      mockedPrisma.store.findUnique.mockResolvedValue(null);
+      const res = await request(app).get(`/${storeId}/layout/generate`);
+      expect(res.status).toBe(404);
+      expect(res.body.error).toBe('Store not found');
+    });
+
+    it('should return a layout for Enterprise tier', async () => {
+      mockedPrisma.store.findUnique.mockResolvedValue({ id: storeId, tier: SubscriptionTier.ENTERPRISE } as any);
+      mockedGemini.generateStoreLayout.mockResolvedValue([{ id: 'test', type: 'HeroSection', order: 0, props: {} }]);
+      const res = await request(app).get(`/${storeId}/layout/generate`);
+      expect(res.status).toBe(200);
+      expect(res.body.layout).toBeDefined();
+      expect(res.body.layout[0].type).toBe('HeroSection');
     });
   });
 

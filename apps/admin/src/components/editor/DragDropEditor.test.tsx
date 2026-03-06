@@ -8,8 +8,12 @@ jest.mock('./ComponentPalette', () => ({
 }));
 
 jest.mock('./Canvas', () => ({
-  Canvas: ({ onSelect }: { onSelect: (id: string) => void }) => (
-    <div data-testid="canvas" onClick={() => onSelect('comp-1')} />
+  Canvas: ({ onSelect, onDuplicate, onMoveUp, onMoveDown }: any) => (
+    <div data-testid="canvas" onClick={() => onSelect('comp-1')}>
+      <button onClick={() => onDuplicate('comp-1')}>Duplicate comp-1</button>
+      <button onClick={() => onMoveUp('comp-2')}>Move Up comp-2</button>
+      <button onClick={() => onMoveDown('comp-1')}>Move Down comp-1</button>
+    </div>
   ),
 }));
 
@@ -84,7 +88,7 @@ describe('DragDropEditor', () => {
     await act(async () => {
       fireEvent.click(screen.getByText('Save'));
     });
-    
+
     expect(mockOnSave).toHaveBeenCalledWith(initialLayout, false);
     await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument());
 
@@ -93,7 +97,7 @@ describe('DragDropEditor', () => {
     });
     await waitFor(() => expect(screen.queryByText('Saved')).not.toBeInTheDocument());
   });
-  
+
   it('should call onSave with publish flag when publish button is clicked', async () => {
     renderEditor();
     await act(async () => {
@@ -104,7 +108,7 @@ describe('DragDropEditor', () => {
 
   it('should update component props when PropertyPanel calls onChange', async () => {
     renderEditor();
-    
+
     await act(async () => {
       fireEvent.click(screen.getByTestId('canvas'));
     });
@@ -117,7 +121,7 @@ describe('DragDropEditor', () => {
     await act(async () => {
       fireEvent.click(screen.getByText('Save'));
     });
-    
+
     const expectedLayout = [
       { id: 'comp-1', type: 'Text', order: 0, props: { text: 'new text' } },
     ];
@@ -126,11 +130,11 @@ describe('DragDropEditor', () => {
 
   it('should delete a component when PropertyPanel calls onDelete', async () => {
     renderEditor();
-    
+
     await act(async () => {
       fireEvent.click(screen.getByTestId('canvas'));
     });
-    
+
     await act(async () => {
       fireEvent.click(screen.getByText('Delete'));
     });
@@ -157,11 +161,11 @@ describe('DragDropEditor', () => {
     });
 
     expect(undoButton).not.toBeDisabled();
-    
+
     await act(async () => {
       fireEvent.click(undoButton);
     });
-    
+
     expect(undoButton).toBeDisabled();
     expect(redoButton).not.toBeDisabled();
 
@@ -178,5 +182,62 @@ describe('DragDropEditor', () => {
       fireEvent.click(screen.getByText('Save'));
     });
     expect(mockOnSave).toHaveBeenCalledWith([], false);
+  });
+
+  it('should duplicate a component', async () => {
+    renderEditor();
+    await act(async () => {
+      fireEvent.click(screen.getByText('Duplicate comp-1'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save'));
+    });
+
+    expect(mockOnSave).toHaveBeenCalledWith([
+      { id: 'comp-1', type: 'Text', order: 0, props: { text: 'Hello' } },
+      { id: 'mock-uuid-123', type: 'Text', order: 1, props: { text: 'Hello' } },
+    ], false);
+  });
+
+  it('should move a component up', async () => {
+    // Initial layout with two items
+    const customLayout = [
+      { id: 'comp-1', type: 'Text', order: 0, props: { text: 'Hello' } },
+      { id: 'comp-2', type: 'Image', order: 1, props: { src: 'img.jpg' } },
+    ];
+    renderEditor({ initialLayout: customLayout });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Move Up comp-2'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save'));
+    });
+
+    expect(mockOnSave).toHaveBeenCalledWith([
+      { id: 'comp-2', type: 'Image', order: 0, props: { src: 'img.jpg' } },
+      { id: 'comp-1', type: 'Text', order: 1, props: { text: 'Hello' } },
+    ], false);
+  });
+
+  it('should move a component down', async () => {
+    // Initial layout with two items
+    const customLayout = [
+      { id: 'comp-1', type: 'Text', order: 0, props: { text: 'Hello' } },
+      { id: 'comp-2', type: 'Image', order: 1, props: { src: 'img.jpg' } },
+    ];
+    renderEditor({ initialLayout: customLayout });
+
+    await act(async () => {
+      fireEvent.click(screen.getByText('Move Down comp-1'));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByText('Save'));
+    });
+
+    expect(mockOnSave).toHaveBeenCalledWith([
+      { id: 'comp-2', type: 'Image', order: 0, props: { src: 'img.jpg' } },
+      { id: 'comp-1', type: 'Text', order: 1, props: { text: 'Hello' } },
+    ], false);
   });
 });

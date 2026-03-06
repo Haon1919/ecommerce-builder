@@ -13,17 +13,17 @@ datasource db {
 // ==================== MULTI-TENANT STORE ====================
 
 model Store {
-  id           String         @id @default(cuid())
-  slug         String         @unique
+  id           String           @id @default(cuid())
+  slug         String           @unique
   name         String
   description  String?
   logoUrl      String?
   faviconUrl   String?
-  theme        ThemeFramework @default(TAILWIND)
-  primaryColor String         @default("#6366f1")
-  configured   Boolean        @default(false)
+  theme        ThemeFramework   @default(TAILWIND)
+  primaryColor String           @default("#6366f1")
+  configured   Boolean          @default(false)
   gaId         String? // Google Analytics Measurement ID
-  customDomain String?        @unique
+  customDomain String?          @unique
   active       Boolean          @default(true)
   tier         SubscriptionTier @default(STARTER)
   createdAt    DateTime         @default(now())
@@ -42,6 +42,10 @@ model Store {
   companies       Company[]
   priceLists      PriceList[]
   experiments     Experiment[]
+  vendors         Vendor[]
+  videoClips      VideoClip[]
+  liveStreams     LiveStream[]
+  apiKeys         ApiKey[]
 
   @@index([slug])
 }
@@ -60,24 +64,25 @@ enum ThemeFramework {
 }
 
 model StoreSettings {
-  id                String  @id @default(cuid())
-  storeId           String  @unique
-  store             Store   @relation(fields: [storeId], references: [id], onDelete: Cascade)
-  stripePublicKey   String?
-  stripeSecretKey   String? // AES-256 encrypted
-  geminiApiKeyEnc   String? // AES-256 encrypted - store-specific override
-  contactEmail      String?
-  shippingPolicy    String?
-  returnPolicy      String?
-  privacyPolicy     String?
-  aboutText         String?
-  metaTitle         String?
-  metaDescription   String?
-  currency          String  @default("USD")
-  taxRate           Float   @default(0)
-  freeShippingAbove Float?
-  flatShippingRate  Float   @default(0)
-  gaId              String?
+  id                  String   @id @default(cuid())
+  storeId             String   @unique
+  store               Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  stripePublicKey     String?
+  stripeSecretKey     String? // AES-256 encrypted
+  geminiApiKeyEnc     String? // AES-256 encrypted - store-specific override
+  contactEmail        String?
+  shippingPolicy      String?
+  returnPolicy        String?
+  privacyPolicy       String?
+  aboutText           String?
+  metaTitle           String?
+  metaDescription     String?
+  currency            String   @default("USD")
+  taxRate             Float    @default(0)
+  freeShippingAbove   Float?
+  flatShippingRate    Float    @default(0)
+  gaId                String?
+  supplierWebhookUrls String[] @default([])
 }
 
 // ==================== USERS & AUTH ====================
@@ -110,6 +115,21 @@ enum UserRole {
   OWNER
   ADMIN
   VIEWER
+}
+
+// ==================== API KEYS (EDGE API) ====================
+
+model ApiKey {
+  id         String    @id @default(cuid())
+  storeId    String
+  store      Store     @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name       String
+  key        String    @unique
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([storeId])
+  @@index([key])
 }
 
 model SuperAdmin {
@@ -172,6 +192,8 @@ model Product {
   id           String   @id @default(cuid())
   storeId      String
   store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  vendorId     String?
+  vendor       Vendor?  @relation(fields: [vendorId], references: [id])
   sku          String?
   name         String
   description  String?
@@ -192,6 +214,7 @@ model Product {
   updatedAt    DateTime @updatedAt
 
   orderItems OrderItem[]
+  videoClips VideoClip[]
 
   @@index([storeId])
   @@index([storeId, category])
@@ -204,6 +227,11 @@ model Order {
   id               String      @id @default(cuid())
   storeId          String
   store            Store       @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  vendorId         String? // For sub-orders assigned to a specific vendor
+  vendor           Vendor?     @relation(fields: [vendorId], references: [id])
+  parentOrderId    String? // If this is a split sub-order
+  parentOrder      Order?      @relation("SplitOrders", fields: [parentOrderId], references: [id])
+  subOrders        Order[]     @relation("SplitOrders")
   orderNumber      String      @unique // Human-readable: ORD-2024-0001
   status           OrderStatus @default(PENDING)
   // PII encrypted with AES-256 - key per store
@@ -249,6 +277,8 @@ model OrderItem {
   id          String  @id @default(cuid())
   orderId     String
   order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  vendorId    String? // Link to vendor for the item
+  vendor      Vendor? @relation(fields: [vendorId], references: [id])
   productId   String
   product     Product @relation(fields: [productId], references: [id])
   productName String // Snapshot at time of purchase
@@ -505,4 +535,69 @@ model Variant {
   layout       Json // Overrides page layout
   createdAt    DateTime   @default(now())
   updatedAt    DateTime   @updatedAt
+}
+
+// ==================== LIVE COMMERCE ====================
+
+model VideoClip {
+  id           String   @id @default(cuid())
+  storeId      String
+  store        Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  url          String // GCS URL
+  thumbnailUrl String?
+  duration     Int? // seconds
+  active       Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  products Product[]
+
+  @@index([storeId])
+  @@index([storeId, active])
+}
+
+model LiveStream {
+  id           String           @id @default(cuid())
+  storeId      String
+  store        Store            @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  title        String
+  description  String?
+  status       LiveStreamStatus @default(PENDING)
+  url          String? // GCS or external stream URL
+  thumbnailUrl String?
+  startedAt    DateTime?
+  endedAt      DateTime?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+
+  @@index([storeId])
+  @@index([storeId, status])
+}
+
+enum LiveStreamStatus {
+  PENDING
+  LIVE
+  ENDED
+}
+
+model Vendor {
+  id              String   @id @default(cuid())
+  storeId         String
+  store           Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  logoUrl         String?
+  stripeAccountIdEnc String? // Store Stripe Connect Account ID encrypted
+  payoutEnabled   Boolean  @default(false)
+  active          Boolean  @default(true)
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  products   Product[]
+  orders     Order[]
+  orderItems OrderItem[]
+
+  @@index([storeId])
 }

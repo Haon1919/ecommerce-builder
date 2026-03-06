@@ -88,10 +88,10 @@ describe('Security Middleware', () => {
       expect(mockNext).toHaveBeenCalled();
     });
 
-    it('sets the X-Response-Time header when the response finishes', () => {
+    it('sets the X-Response-Time header when writeHead is called', () => {
       const res = makeRes();
       responseTime(makeReq(), res, mockNext);
-      res._emit('finish');
+      res.writeHead(200);
       expect(res.setHeader).toHaveBeenCalledWith(
         'X-Response-Time',
         expect.stringMatching(/^\d+(\.\d+)?ms$/)

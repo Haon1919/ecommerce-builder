@@ -1,6 +1,7 @@
 import { OrderService } from './order.service';
 import { prisma } from '../db';
 import { NotFoundError, InsufficientStockError } from '../errors';
+import { PaymentService } from './payment';
 
 jest.mock('../db', () => ({
   prisma: {
@@ -15,6 +16,13 @@ jest.mock('../db', () => ({
       findFirst: jest.fn(),
     },
     metricSnapshot: { create: jest.fn() },
+    vendor: { findMany: jest.fn(), findUnique: jest.fn() },
+  },
+}));
+
+jest.mock('./payment', () => ({
+  PaymentService: {
+    processSplitPayout: jest.fn().mockResolvedValue(true),
   },
 }));
 
@@ -99,6 +107,49 @@ describe('OrderService', () => {
         where: { id: 'p1' },
         data: { stock: { decrement: 2 } },
       });
+    });
+
+    it('creates sub-orders and processes split payouts for multi-vendor carts', async () => {
+      const p1 = { ...mockProduct, id: 'p1', vendorId: 'v1', price: 10 };
+      const p2 = { ...mockProduct, id: 'p2', vendorId: 'v2', price: 20 };
+      mockPrisma.product.findMany.mockResolvedValue([p1, p2]);
+
+      const mockedVendors = [
+        { id: 'v1', payoutEnabled: true, stripeAccountIdEnc: 'enc:acct_1' },
+        { id: 'v2', payoutEnabled: true, stripeAccountIdEnc: 'enc:acct_2' },
+      ];
+      mockPrisma.vendor.findMany.mockResolvedValue(mockedVendors);
+
+      const parentOrder = { ...mockCreatedOrder, id: 'parent-123' };
+      const subOrder1 = { ...mockCreatedOrder, id: 'sub-1' };
+      const subOrder2 = { ...mockCreatedOrder, id: 'sub-2' };
+
+      mockPrisma.order.create
+        .mockResolvedValueOnce(parentOrder)
+        .mockResolvedValueOnce(subOrder1)
+        .mockResolvedValueOnce(subOrder2);
+
+      const splitData = {
+        ...baseOrderData,
+        items: [
+          { productId: 'p1', quantity: 1 },
+          { productId: 'p2', quantity: 2 },
+        ],
+      };
+
+      await OrderService.createOrder('store1', splitData, undefined);
+
+      // Verify 3 orders created: 1 parent + 2 subs
+      expect(mockPrisma.order.create).toHaveBeenCalledTimes(3);
+
+      // sub1 total: 10 + 10*(10%) tax + 0 shipping = 11 -> 1100
+      // sub2 total: 40 + 40*(10%) tax + 0 shipping = 44 -> 4400
+      expect(PaymentService.processSplitPayout).toHaveBeenCalledWith(
+        expect.arrayContaining([
+          expect.objectContaining({ vendorStripeAccountId: 'acct_1', amount: 1100 }),
+          expect.objectContaining({ vendorStripeAccountId: 'acct_2', amount: 4400 }),
+        ])
+      );
     });
 
     it('throws NotFoundError when a product in the order does not exist', async () => {

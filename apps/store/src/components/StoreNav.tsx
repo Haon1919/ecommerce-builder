@@ -1,7 +1,7 @@
 'use client';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
-import { ShoppingCart, Menu, X } from 'lucide-react';
+import { ShoppingCart, Menu, X, Video } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '@/lib/cart';
 import type { StoreInfo } from '@/types';
@@ -28,6 +28,7 @@ export function StoreNav({ store }: { store: StoreInfo }) {
         <div className="hidden md:flex items-center gap-8">
           <Link href={`/${slug}`} className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium">Home</Link>
           <Link href={`/${slug}/products`} className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium">Products</Link>
+          <Link href={`/${slug}/feed`} className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium flex items-center gap-1.5"><Video className="w-4 h-4" /> Feed</Link>
           <Link href={`/${slug}/contact`} className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium">Contact</Link>
         </div>
 
@@ -55,6 +56,7 @@ export function StoreNav({ store }: { store: StoreInfo }) {
         <div className="md:hidden border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-6 py-4 space-y-3">
           <Link href={`/${slug}`} className="block text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white font-medium py-2" onClick={() => setMenuOpen(false)}>Home</Link>
           <Link href={`/${slug}/products`} className="block text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white font-medium py-2" onClick={() => setMenuOpen(false)}>Products</Link>
+          <Link href={`/${slug}/feed`} className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white font-medium py-2" onClick={() => setMenuOpen(false)}><Video className="w-4 h-4" /> Feed</Link>
           <Link href={`/${slug}/contact`} className="block text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white font-medium py-2" onClick={() => setMenuOpen(false)}>Contact</Link>
         </div>
       )}

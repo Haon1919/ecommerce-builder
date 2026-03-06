@@ -88,7 +88,7 @@ You can help customers:
 3. **Product details** - Answer questions about any product in the catalog
 4. **Cart guidance** - Suggest add-to-cart actions with product IDs
 5. **Policies** - Explain shipping, returns, and store policies
-6. **Support** - Help troubleshoot orders or direct to contact page
+6. **Support** - Help troubleshoot orders or direct to contact page${(store as any).tier === 'ENTERPRISE' ? '\n7. **Agentic Checkout** - When requested, autonomously checkout to purchase items for the user.' : ''}
 
 ## Action Format
 When you want to trigger a frontend action, include a JSON block at the END of your message (not inline):
@@ -100,7 +100,7 @@ Available action types:
 - \`SHOW_PRODUCTS\` - Display product cards: \`{"type": "SHOW_PRODUCTS", "productIds": [...]}\`
 - \`ADD_TO_CART\` - Add a product: \`{"type": "ADD_TO_CART", "productId": "...", "quantity": 1}\`
 - \`GO_TO_PAGE\` - Navigate: \`{"type": "GO_TO_PAGE", "page": "products|cart|contact"}\`
-- \`SHOW_CATEGORY\` - Filter category: \`{"type": "SHOW_CATEGORY", "category": "..."}\`
+- \`SHOW_CATEGORY\` - Filter category: \`{"type": "SHOW_CATEGORY", "category": "..."}\`${(store as any).tier === 'ENTERPRISE' ? '\n- `PROCESS_CHECKOUT` - Create an order directly: `{"type": "PROCESS_CHECKOUT", "items": [{"productId": "...", "quantity": 1}]}`' : ''}
 
 ## Guidelines
 - Always be helpful, accurate, and concise
@@ -259,3 +259,85 @@ ${budget ? `- Stay within the $${budget} total budget` : ''}`;
     summary: "I couldn't generate recommendations. Please browse our products directly.",
   };
 }
+
+/**
+ * Generate a dynamic layout for an Enterprise store using Gemini.
+ */
+export async function generateStoreLayout(storeId: string, context?: string, storeGeminiKey?: string): Promise<any[]> {
+  const [store, products] = await Promise.all([
+    prisma.store.findUnique({ where: { id: storeId } }),
+    prisma.product.findMany({
+      where: { storeId, active: true },
+      select: { id: true, name: true, category: true },
+      take: 100, // Reasonable limit
+    }),
+  ]);
+
+  if (!store) throw new Error('Store not found');
+
+  const ai = getGenAI(storeGeminiKey);
+  const model = ai.getGenerativeModel({ model: config.gemini.model });
+
+  let productsContext = products.length > 0
+    ? `Available products:\n${products.map(p => `- ID: ${p.id} | Name: ${p.name} | Category: ${p.category}`).join('\n')}`
+    : 'No products currently available.';
+
+  const prompt = `You are an expert e-commerce layout designer. Generate a Next.js JSON layout for the store "${store.name}".
+${context ? `Additional user context/session details: ${context}\n` : ''}
+${productsContext}
+
+Return a JSON array of PageComponent objects. Each component must have:
+- "id": A unique string (e.g., "hero-1", "grid-1")
+- "type": One of "HeroSection", "Heading", "Text", "Image", "Button", "Banner", "ProductGrid", "FeaturedProducts", "Testimonial", "FAQ", "Spacer", "Divider", "ContactForm", "NewsletterForm"
+- "order": A number indicating its position (0, 1, 2, etc.)
+- "props": An object with properties specific to the component type.
+
+For "ProductGrid" and "FeaturedProducts", you can leave "props" empty or specify {"columns": "3", "limit": 6}.
+For "HeroSection", include {"title": "...", "subtitle": "...", "ctaText": "...", "ctaLink": "..."} in "props".
+Ensure colors look professional (e.g., {"backgroundColor": "#4f46e5", "textColor": "#ffffff"}).
+
+Return ONLY the JSON array. Do not wrap in markdown tags or add any other text. Example:
+[
+  {
+    "id": "hero-1",
+    "type": "HeroSection",
+    "order": 0,
+    "props": {
+      "title": "Welcome to ${store.name}",
+      "subtitle": "Discover our amazing products.",
+      "backgroundColor": "#111827",
+      "textColor": "#ffffff",
+      "ctaText": "Shop Now",
+      "ctaLink": "/products"
+    }
+  },
+  {
+    "id": "grid-1",
+    "type": "ProductGrid",
+    "order": 1,
+    "props": {
+      "columns": "3",
+      "limit": 6
+    }
+  }
+]`;
+
+  try {
+    const result = await model.generateContent(prompt);
+    let text = result.response.text().trim();
+    // Strip markdown code blocks if present
+    text = text.replace(/^```json/mi, '').replace(/```$/mi, '').trim();
+
+    // In case the model still returned some leading/trailing text, extract JSON array
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    if (jsonMatch) {
+      return JSON.parse(jsonMatch[0]);
+    }
+
+    return JSON.parse(text);
+  } catch (err) {
+    logger.error('Failed to generate store layout with Gemini', { error: err, storeId });
+    throw new Error('Failed to generate layout');
+  }
+}
+

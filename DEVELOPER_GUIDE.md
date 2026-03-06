@@ -20,7 +20,10 @@ This guide covers everything you need to get the project running locally, unders
 12. [Drag-Drop Page Builder](#12-drag-drop-page-builder)
 13. [Adding a New Feature](#13-adding-a-new-feature)
 14. [Testing](#14-testing)
-15. [Common Pitfalls](#15-common-pitfalls)
+15. [Data Retention & Cleanup](#15-data-retention--cleanup)
+16. [Production Configuration Guards](#16-production-configuration-guards)
+17. [Common Pitfalls](#17-common-pitfalls)
+18. [Headless Edge API](#18-headless-edge-api)
 
 ---
 
@@ -576,3 +579,20 @@ In non-production environments, the server logs warnings for obviously-weak keys
 **`Page builder saves but store shows old content`** — Saving via the editor writes a draft. The storefront only renders **published** pages. Hit "Publish" in the editor toolbar.
 
 **Changing the schema without a migration** — Prisma reads the generated client, not the schema file at runtime. If you edit `schema.prisma` but don't run `migrate dev`, nothing changes in the database and queries will fail silently. Always follow a schema edit with a migration.
+
+---
+
+## 18. Headless Edge API
+
+The Headless Edge API (`/api/edge/*`) provides high-performance, stateless endpoints designed for custom storefronts, mobile apps, or any decoupled client. Access requires an API Key, which can be generated in the Store Admin Panel (requires **GROWTH** tier or higher).
+
+**Authentication:**
+Pass the API key in the `Authorization` header:
+```text
+Authorization: Bearer edge_live_...
+```
+
+**Available Endpoints:**
+- `GET /api/edge/products` — List catalog products (supports `search`, `category`, `limit`, `offset`, `sort`)
+- `GET /api/edge/products/:productId` — Get a single product by ID
+- `POST /api/edge/checkout` — Create a stateless order (checkout)

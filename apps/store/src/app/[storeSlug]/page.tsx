@@ -1,6 +1,7 @@
 import { notFound } from 'next/navigation';
 import { storeApi, productsApi, experimentsApi } from '@/lib/api';
 import { PageRenderer } from '@/components/PageRenderer';
+import { GenerativeLayout } from '@/components/GenerativeLayout';
 import type { StoreInfo, PageComponent } from '@/types';
 
 const isStaticExport = process.env.STATIC_EXPORT === 'true';
@@ -125,9 +126,10 @@ export default async function StoreLanding({ params }: { params: Promise<{ store
   } catch { }
 
   return (
-    <PageRenderer
-      layout={Array.isArray(page.layout) ? page.layout : []}
+    <GenerativeLayout
+      store={store}
       storeSlug={storeSlug}
+      fallbackLayout={Array.isArray(page.layout) ? page.layout : []}
       products={products}
     />
   );

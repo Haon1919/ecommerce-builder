@@ -41,7 +41,9 @@ export default function CheckoutPage() {
     ? 0 : (store?.settings?.flatShippingRate ?? 0);
   const total = subtotal() + tax + shipping;
 
-  if (items.length === 0) {
+  const [isSuccess, setIsSuccess] = useState(false);
+
+  if (items.length === 0 && !isSubmitting && !isSuccess) {
     router.push(`/${params.storeSlug}/cart`);
     return null;
   }
@@ -60,6 +62,7 @@ export default function CheckoutPage() {
         shippingAddress: { line1: form.line1, line2: form.line2, city: form.city, state: form.state, zip: form.zip, country: form.country },
         items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
       });
+      setIsSuccess(true);
       clearCart();
       router.push(`/${params.storeSlug}/cart/confirmation?order=${order.orderNumber}`);
     } catch (err: unknown) {
@@ -80,9 +83,8 @@ export default function CheckoutPage() {
       <div className="flex items-center gap-2 mb-8">
         {STEPS.map((s, i) => (
           <div key={s} className="flex items-center gap-2">
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${
-              i <= step ? 'text-white' : 'bg-gray-100 text-gray-400'
-            }`} style={i <= step ? { backgroundColor: 'var(--primary)' } : {}}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold transition-colors ${i <= step ? 'text-white' : 'bg-gray-100 text-gray-400'
+              }`} style={i <= step ? { backgroundColor: 'var(--primary)' } : {}}>
               {i + 1}
             </div>
             <span className={`text-sm font-medium ${i === step ? 'text-gray-900' : 'text-gray-400'}`}>{s}</span>
@@ -98,16 +100,16 @@ export default function CheckoutPage() {
             <>
               <h2 className="font-semibold text-gray-900 text-lg">Contact Information</h2>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
-                <input type="email" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.email} onChange={update('email')} required />
+                <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">Email *</label>
+                <input id="email" type="email" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.email} onChange={update('email')} required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
-                <input className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.name} onChange={update('name')} required />
+                <label htmlFor="name" className="block text-sm font-medium text-gray-700 mb-1">Full Name *</label>
+                <input id="name" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.name} onChange={update('name')} required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                <input type="tel" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.phone} onChange={update('phone')} />
+                <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
+                <input id="phone" type="tel" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.phone} onChange={update('phone')} />
               </div>
             </>
           )}
@@ -117,31 +119,31 @@ export default function CheckoutPage() {
             <>
               <h2 className="font-semibold text-gray-900 text-lg">Shipping Address</h2>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Address Line 1 *</label>
-                <input className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.line1} onChange={update('line1')} required />
+                <label htmlFor="line1" className="block text-sm font-medium text-gray-700 mb-1">Address Line 1 *</label>
+                <input id="line1" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.line1} onChange={update('line1')} required />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Apartment, suite, etc. (optional)</label>
-                <input className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.line2} onChange={update('line2')} />
+                <label htmlFor="line2" className="block text-sm font-medium text-gray-700 mb-1">Apartment, suite, etc. (optional)</label>
+                <input id="line2" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.line2} onChange={update('line2')} />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">City *</label>
-                  <input className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.city} onChange={update('city')} required />
+                  <label htmlFor="city" className="block text-sm font-medium text-gray-700 mb-1">City *</label>
+                  <input id="city" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.city} onChange={update('city')} required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">State *</label>
-                  <input className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.state} onChange={update('state')} required />
+                  <label htmlFor="state" className="block text-sm font-medium text-gray-700 mb-1">State *</label>
+                  <input id="state" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.state} onChange={update('state')} required />
                 </div>
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">ZIP Code *</label>
-                  <input className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.zip} onChange={update('zip')} required />
+                  <label htmlFor="zip" className="block text-sm font-medium text-gray-700 mb-1">ZIP Code *</label>
+                  <input id="zip" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2" value={form.zip} onChange={update('zip')} required />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">Country</label>
-                  <select className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 bg-white" value={form.country} onChange={update('country')}>
+                  <label htmlFor="country" className="block text-sm font-medium text-gray-700 mb-1">Country</label>
+                  <select id="country" className="w-full border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 bg-white" value={form.country} onChange={update('country')}>
                     <option value="US">United States</option>
                     <option value="CA">Canada</option>
                     <option value="GB">United Kingdom</option>

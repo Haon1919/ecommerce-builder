@@ -1,6 +1,6 @@
 'use client';
 import { useState } from 'react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuthStore } from '@/lib/auth';
 import { storeApi } from '@/lib/api';
 
@@ -21,6 +21,7 @@ export default function SettingsPage() {
     theme: store?.theme ?? 'TAILWIND',
     primaryColor: store?.primaryColor ?? '#6366f1',
     gaId: store?.gaId ?? '',
+    customDomain: store?.customDomain ?? '',
     contactEmail: store?.settings?.contactEmail ?? '',
     currency: store?.settings?.currency ?? 'USD',
     taxRate: store?.settings?.taxRate ?? 0,
@@ -31,12 +32,13 @@ export default function SettingsPage() {
     stripePublicKey: '',
     stripeSecretKey: '',
     geminiApiKey: '',
+    supplierWebhookUrlInput: (store?.settings?.supplierWebhookUrls || []).join('\n'),
   });
   const [saved, setSaved] = useState(false);
 
   const saveMutation = useMutation({
     mutationFn: async () => {
-      await storeApi.update(store!.id, { name: form.name, description: form.description, theme: form.theme, primaryColor: form.primaryColor, gaId: form.gaId });
+      await storeApi.update(store!.id, { name: form.name, description: form.description, theme: form.theme, primaryColor: form.primaryColor, gaId: form.gaId, customDomain: form.customDomain || null });
       await storeApi.updateSettings(store!.id, {
         contactEmail: form.contactEmail,
         currency: form.currency,
@@ -48,6 +50,7 @@ export default function SettingsPage() {
         ...(form.stripeSecretKey ? { stripeSecretKey: form.stripeSecretKey } : {}),
         ...(form.stripePublicKey ? { stripePublicKey: form.stripePublicKey } : {}),
         ...(form.geminiApiKey ? { geminiApiKey: form.geminiApiKey } : {}),
+        supplierWebhookUrls: form.supplierWebhookUrlInput.split('\n').map((u) => u.trim()).filter(Boolean),
       });
     },
     onSuccess: () => {
@@ -55,6 +58,30 @@ export default function SettingsPage() {
       qc.invalidateQueries({ queryKey: ['store'] });
       setTimeout(() => setSaved(false), 3000);
     },
+  });
+
+  const isGrowthOrEnterprise = store?.tier === 'GROWTH' || store?.tier === 'ENTERPRISE';
+
+  const apiKeysQuery = useQuery({
+    queryKey: ['apiKeys', store?.id],
+    queryFn: () => storeApi.apiKeys.list(store!.id),
+    enabled: !!store && isGrowthOrEnterprise,
+  });
+
+  const [newKeyName, setNewKeyName] = useState('');
+
+  const createKeyMutation = useMutation({
+    mutationFn: (name: string) => storeApi.apiKeys.create(store!.id, name),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['apiKeys', store?.id] });
+      setNewKeyName('');
+      alert(`IMPORTANT: Copy your new API key now. You won't be able to see it again!\n\n${data.key}`);
+    },
+  });
+
+  const revokeKeyMutation = useMutation({
+    mutationFn: (id: string) => storeApi.apiKeys.revoke(store!.id, id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['apiKeys', store?.id] }),
   });
 
   return (
@@ -77,6 +104,11 @@ export default function SettingsPage() {
             <div>
               <label className="label">Contact Email</label>
               <input type="email" className="input" value={form.contactEmail} onChange={(e) => setForm({ ...form, contactEmail: e.target.value })} />
+            </div>
+            <div>
+              <label className="label">Custom Domain</label>
+              <input type="text" className="input" value={form.customDomain} onChange={(e) => setForm({ ...form, customDomain: e.target.value })} placeholder="e.g. shop.mybrand.com" />
+              <p className="text-xs text-gray-400 mt-1">Configure your DNS to point to our servers.</p>
             </div>
           </div>
         </div>
@@ -159,6 +191,83 @@ export default function SettingsPage() {
           </div>
         </div>
 
+        {/* Headless Edge API */}
+        <div className="card p-6">
+          <h2 className="font-semibold text-gray-900 mb-4">Headless Edge API</h2>
+
+          {!isGrowthOrEnterprise ? (
+            <div className="bg-amber-50 border border-amber-200 text-amber-800 rounded-lg p-4 text-sm">
+              <p className="font-medium mb-1">Upgrade Required</p>
+              <p>Headless API Keys are only available on the GROWTH tier and above. Upgrade your store to generate API keys for high-performance edge catalog access.</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
+              <div>
+                <label className="label">Generate New API Key</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    className="input flex-1"
+                    placeholder="Key name (e.g., Mobile App)"
+                    value={newKeyName}
+                    onChange={(e) => setNewKeyName(e.target.value)}
+                  />
+                  <button
+                    onClick={() => createKeyMutation.mutate(newKeyName)}
+                    disabled={createKeyMutation.isPending || !newKeyName.trim()}
+                    className="btn-primary"
+                  >
+                    Generate
+                  </button>
+                </div>
+              </div>
+
+              {apiKeysQuery.isLoading ? (
+                <p className="text-sm text-gray-500">Loading API Keys...</p>
+              ) : apiKeysQuery.data && apiKeysQuery.data.length > 0 ? (
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="min-w-full text-sm">
+                    <thead className="bg-gray-50 border-b border-gray-200 text-left text-gray-500">
+                      <tr>
+                        <th className="py-2 px-4 font-medium">Name</th>
+                        <th className="py-2 px-4 font-medium">Key Prefix</th>
+                        <th className="py-2 px-4 font-medium">Created</th>
+                        <th className="py-2 px-4 font-medium">Last Used</th>
+                        <th className="py-2 px-4 font-medium text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100 bg-white">
+                      {apiKeysQuery.data.map((k: any) => (
+                        <tr key={k.id}>
+                          <td className="py-2 px-4 text-gray-900">{k.name}</td>
+                          <td className="py-2 px-4 font-mono text-xs">{k.key}</td>
+                          <td className="py-2 px-4 text-gray-500">{new Date(k.createdAt).toLocaleDateString()}</td>
+                          <td className="py-2 px-4 text-gray-500">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString() : 'Never'}</td>
+                          <td className="py-2 px-4 text-right">
+                            <button
+                              onClick={() => {
+                                if (confirm('Are you sure you want to revoke this key?')) {
+                                  revokeKeyMutation.mutate(k.id);
+                                }
+                              }}
+                              disabled={revokeKeyMutation.isPending}
+                              className="text-red-500 hover:text-red-700 font-medium text-xs"
+                            >
+                              Revoke
+                            </button>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-500">No active API keys found.</p>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Policies */}
         <div className="card p-6">
           <h2 className="font-semibold text-gray-900 mb-4">Policies</h2>
@@ -173,6 +282,33 @@ export default function SettingsPage() {
             </div>
           </div>
         </div>
+
+        {/* Webhooks / Predictive Inventory */}
+        {store?.tier === 'GROWTH' || store?.tier === 'ENTERPRISE' ? (
+          <div className="card p-6 border-l-4 border-indigo-500">
+            <h2 className="font-semibold text-gray-900 mb-4">Predictive Inventory (Webhooks)</h2>
+            <div className="space-y-4">
+              <div>
+                <label className="label">Supplier Webhook URLs (one per line)</label>
+                <textarea
+                  className="input resize-none"
+                  rows={3}
+                  value={form.supplierWebhookUrlInput}
+                  onChange={(e) => setForm({ ...form, supplierWebhookUrlInput: e.target.value })}
+                  placeholder="https://your-supplier.com/webhook"
+                />
+                <p className="text-xs text-gray-400 mt-1">
+                  We will automatically send temporary purchase orders when anomalous sales deplete inventory within 48 hours.
+                </p>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="card p-6 bg-gray-50 border border-gray-200">
+            <h2 className="font-semibold text-gray-500 mb-2">Predictive Inventory (Webhooks)</h2>
+            <p className="text-sm text-gray-500 mb-4">Upgrade to the GROWTH tier to enable automated supplier webhooks for predicted stock depletion.</p>
+          </div>
+        )}
 
         {/* Save */}
         <div className="flex items-center gap-4">

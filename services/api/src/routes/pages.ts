@@ -2,6 +2,8 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import { prisma } from '../db';
 import { requireStoreAdmin, optionalAuth } from '../middleware/auth';
+import { requireTier, SubscriptionTier } from '../middleware/tier';
+import { generateStoreLayout } from '../services/gemini';
 
 const router = Router();
 
@@ -20,6 +22,19 @@ const pageSchema = z.object({
   seoTitle: z.string().optional(),
   seoDesc: z.string().optional(),
   published: z.boolean().default(false),
+});
+
+// GET /stores/:storeId/layout/generate
+router.get('/:storeId/layout/generate', optionalAuth, requireTier(SubscriptionTier.ENTERPRISE), async (req: Request, res: Response): Promise<void> => {
+  const storeId = req.params.storeId as string;
+  const context = req.query.context as string | undefined;
+
+  try {
+    const layout = await generateStoreLayout(storeId, context);
+    res.json({ layout });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate layout' });
+  }
 });
 
 // GET /stores/:storeId/pages - combined endpoint

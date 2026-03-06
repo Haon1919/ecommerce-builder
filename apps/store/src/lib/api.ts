@@ -10,6 +10,8 @@ export const api = axios.create({
 export const storeApi = {
   getBySlug: (slug: string) => api.get(`/stores/slug/${slug}`).then((r) => r.data),
   getPage: (storeId: string, slug: string) => api.get(`/stores/${storeId}/pages/${slug || ''}`).then((r) => r.data),
+  generateLayout: (storeId: string, context?: string) =>
+    api.get(`/stores/${storeId}/layout/generate`, { params: { context } }).then((r) => r.data),
 };
 
 export const productsApi = {

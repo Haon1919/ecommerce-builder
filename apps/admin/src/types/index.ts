@@ -8,6 +8,7 @@ export interface Store {
   primaryColor: string;
   configured: boolean;
   gaId?: string;
+  customDomain?: string | null;
   tier: 'STARTER' | 'GROWTH' | 'ENTERPRISE';
   settings?: StoreSettings;
 }
@@ -22,6 +23,7 @@ export interface StoreSettings {
   shippingPolicy?: string;
   returnPolicy?: string;
   aboutText?: string;
+  supplierWebhookUrls?: string[];
 }
 
 export interface User {
