@@ -136,8 +136,8 @@ jobs:
   smoke-test:
     name: Smoke Tests
     runs-on: ubuntu-latest
-    needs: [deploy-api]
-    if: always() && needs.deploy-api.result == 'success'
+    needs: [build-api]
+    if: always() && needs.build-api.result == 'success'
     steps:
       - id: auth
         uses: google-github-actions/auth@v2
