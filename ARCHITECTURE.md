@@ -18,7 +18,7 @@ flowchart TD
     end
 
     %% Frontend Apps (Next.js)
-    subgraph Frontend["Frontend Applications (Next.js 14)"]
+    subgraph Frontend["Frontend Applications (Next.js 15)"]
         StoreApp["Storefront App\n(Port 3003)"]
         AdminApp["Store Admin App\n(Port 3002)"]
         SuperAdminApp["Super Admin App\n(Port 3004)"]
