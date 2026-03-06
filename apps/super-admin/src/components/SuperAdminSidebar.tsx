@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import {
   LayoutDashboard, Ticket, ScrollText, Activity, Building2, LogOut, Shield, Bell
 } from 'lucide-react';
+import { ThemeToggle } from './theme-toggle';
 
 const navItems = [
   { href: '/', icon: LayoutDashboard, label: 'Overview' },
@@ -18,7 +19,7 @@ export function SuperAdminSidebar() {
   const pathname = usePathname();
 
   return (
-    <aside className="w-60 min-h-screen bg-gray-900 border-r border-gray-800 flex flex-col">
+    <aside className="w-60 min-h-screen bg-gray-900 dark:bg-gray-950 border-r border-gray-800 flex flex-col transition-colors">
       <div className="px-5 py-5 border-b border-gray-800">
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 relative">
@@ -52,7 +53,8 @@ export function SuperAdminSidebar() {
         })}
       </nav>
 
-      <div className="px-3 py-4 border-t border-gray-800">
+      <div className="px-3 py-4 border-t border-gray-800 space-y-2">
+        <ThemeToggle />
         <button
           onClick={() => { localStorage.removeItem('super_admin_token'); window.location.href = '/login'; }}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"

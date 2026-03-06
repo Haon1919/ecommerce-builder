@@ -3,6 +3,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { useAuthStore } from '@/lib/auth';
+import { ThemeToggle } from '../theme-toggle';
 import {
   LayoutDashboard, Layers, Package, MessageSquare, Ticket, Settings,
   ShoppingCart, LogOut, ExternalLink, ChevronRight, Building, Banknote
@@ -28,7 +29,7 @@ export function Sidebar() {
   const storeUrl = `${process.env.NEXT_PUBLIC_STORE_URL}/${store?.slug}`;
 
   return (
-    <aside className="w-64 min-h-screen bg-gray-900 text-white flex flex-col">
+    <aside className="w-64 min-h-screen bg-gray-900 dark:bg-gray-950 text-white flex flex-col transition-colors border-r border-gray-800">
       {/* Logo */}
       <div className="px-6 py-5 border-b border-gray-800">
         <div className="flex items-center gap-3">
@@ -90,6 +91,7 @@ export function Sidebar() {
             <p className="text-sm font-medium truncate">{user?.name}</p>
             <p className="text-xs text-gray-400 truncate">{user?.email}</p>
           </div>
+          <ThemeToggle />
         </div>
         <button
           onClick={logout}

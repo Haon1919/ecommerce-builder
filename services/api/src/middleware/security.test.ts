@@ -25,6 +25,7 @@ const makeRes = (statusCode = 200): FinishableRes => {
     statusCode,
     on: jest.fn((event: string, cb: () => void) => { handlers[event] = cb; }),
     setHeader: jest.fn(),
+    writeHead: jest.fn(),
     json: jest.fn(function (this: any, body: unknown) { return this; }),
     _emit: (event: string) => handlers[event]?.(),
   };

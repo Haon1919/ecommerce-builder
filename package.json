@@ -2,15 +2,17 @@
   "name": "ecommerce-builder",
   "version": "1.0.0",
   "private": true,
+  "packageManager": "npm@10.8.2",
   "workspaces": [
     "apps/*",
-    "services/*"
+    "services/*",
+    "packages/*"
   ],
   "scripts": {
-    "dev": "concurrently \"npm run dev --workspace=services/api\" \"npm run dev --workspace=apps/admin\" \"npm run dev --workspace=apps/store\" \"npm run dev --workspace=apps/super-admin\"",
-    "build": "npm run build --workspaces",
-    "lint": "npm run lint --workspaces --if-present",
-    "test": "npm run test --workspaces --if-present",
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
     "test:ui": "playwright test",
     "test:perf:local": "docker run --rm -i -v \"$(pwd)/tests/performance/scenarios:/tests/scenarios\" grafana/k6 run /tests/scenarios/storefront-load.js",
     "test:security": "./scripts/security-audit.sh",
@@ -19,6 +21,6 @@
   },
   "devDependencies": {
     "@playwright/test": "^1.58.2",
-    "concurrently": "^8.2.2"
+    "turbo": "^2.8.14"
   }
 }

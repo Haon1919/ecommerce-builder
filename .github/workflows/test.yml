@@ -97,14 +97,22 @@ jobs:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/ecommerce_test
         run: npx prisma migrate deploy
 
-      - name: Run unit tests
+      - name: Run unit tests with coverage
         working-directory: services/api
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/ecommerce_test
           JWT_SECRET: test-jwt-secret-min-64-chars-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
           ENCRYPTION_KEY: 00000000000000000000000000000000
           NODE_ENV: test
-        run: npm test --if-present
+        run: npm test --if-present -- --coverage
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: api-coverage
+          path: services/api/coverage/
+          retention-days: 14
 
   # ─────────────────────────────────────────────────────────────
   # Admin — TypeScript, lint, build check
@@ -126,6 +134,18 @@ jobs:
       - name: TypeScript type check
         working-directory: apps/admin
         run: npx tsc --noEmit
+      - name: Run unit tests with coverage
+        working-directory: apps/admin
+        run: npm test --if-present -- --coverage
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: admin-coverage
+          path: apps/admin/coverage/
+          retention-days: 14
+
       - name: Next.js build check
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
@@ -152,6 +172,18 @@ jobs:
       - name: TypeScript type check
         working-directory: apps/store
         run: npx tsc --noEmit
+      - name: Run unit tests with coverage
+        working-directory: apps/store
+        run: npm test --if-present -- --coverage
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: store-coverage
+          path: apps/store/coverage/
+          retention-days: 14
+
       - name: Next.js build check
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001
@@ -178,6 +210,18 @@ jobs:
       - name: TypeScript type check
         working-directory: apps/super-admin
         run: npx tsc --noEmit
+      - name: Run unit tests with coverage
+        working-directory: apps/super-admin
+        run: npm test --if-present -- --coverage
+
+      - name: Upload Coverage Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: super-admin-coverage
+          path: apps/super-admin/coverage/
+          retention-days: 14
+
       - name: Next.js build check
         env:
           NEXT_PUBLIC_API_URL: http://localhost:3001

@@ -82,4 +82,83 @@ describe('Canvas', () => {
     expect(wrapperDiv).not.toHaveClass('ring-2');
     expect(wrapperDiv).not.toHaveClass('ring-primary-500');
   });
+
+  it('should render various component types correctly', () => {
+    // Array covering different switch branches in ComponentPreview
+    const diverseComponents: PageComponent[] = [
+      { id: 'c-hero', type: 'HeroSection', order: 0, props: { title: 'Welcome', subtitle: 'To our store', ctaText: 'Shop Now' } },
+      { id: 'c-img', type: 'Image', order: 1, props: { src: 'fake.jpg', alt: 'Fake image' } },
+      { id: 'c-btn', type: 'Button', order: 2, props: { text: 'Click Me', variant: 'primary', size: 'md' } },
+      { id: 'c-banner', type: 'Banner', order: 3, props: { text: 'Sale!' } },
+      { id: 'c-spacer', type: 'Spacer', order: 4, props: { height: 50 } },
+      { id: 'c-divider', type: 'Divider', order: 5, props: {} },
+      { id: 'c-grid', type: 'ProductGrid', order: 6, props: { columns: 3 } },
+      { id: 'c-featured', type: 'FeaturedProducts', order: 7, props: { title: 'Hot items' } },
+      { id: 'c-testi', type: 'Testimonial', order: 8, props: { quote: 'Amazing!', author: 'Bob', rating: 5 } },
+      { id: 'c-contact', type: 'ContactForm', order: 9, props: { title: 'Reach out' } },
+      { id: 'c-news', type: 'NewsletterForm', order: 10, props: { title: 'Subscribe' } },
+      { id: 'c-unknown', type: 'UnknownType', order: 11, props: {} }, // Default fallback
+    ];
+
+    render(<Canvas components={diverseComponents} selectedId={null} onSelect={mockOnSelect} />);
+
+    expect(screen.getByText('Welcome')).toBeInTheDocument();
+    expect(screen.getByText('To our store')).toBeInTheDocument();
+    expect(screen.getByText('Click Me')).toBeInTheDocument();
+    expect(screen.getByText('Sale!')).toBeInTheDocument();
+    expect(screen.getByText('Hot items')).toBeInTheDocument();
+    expect(screen.getByText('"Amazing!"')).toBeInTheDocument();
+    expect(screen.getByText('Reach out')).toBeInTheDocument();
+    expect(screen.getAllByText('Subscribe')[0]).toBeInTheDocument();
+    expect(screen.getByText('[UnknownType component]')).toBeInTheDocument();
+  });
+
+  it('should trigger control buttons inside a selected SortableComponent', () => {
+    const mockOnDuplicate = jest.fn();
+    const mockOnMoveUp = jest.fn();
+    const mockOnMoveDown = jest.fn();
+    const mockOnDelete = jest.fn();
+
+    const threeComps: PageComponent[] = [
+      { id: 'comp-1', type: 'HeroSection', order: 0, props: {} },
+      { id: 'comp-2', type: 'Text', order: 1, props: {} },
+      { id: 'comp-3', type: 'Image', order: 2, props: {} },
+    ];
+
+    render(
+      <Canvas
+        components={threeComps}
+        selectedId={'comp-2'}
+        onSelect={mockOnSelect}
+        onDuplicate={mockOnDuplicate}
+        onMoveUp={mockOnMoveUp}
+        onMoveDown={mockOnMoveDown}
+        onDelete={mockOnDelete}
+      />
+    );
+
+    // Because three components are rendered, there are 3 toolbars.
+    // The second component (index 1) is the one we passed as selectedId.
+    // However, the components array has comp-2 at index 1.
+    const dupButtons = screen.getAllByRole('button', { name: 'Duplicate' });
+    fireEvent.click(dupButtons[1]);
+    expect(mockOnDuplicate).toHaveBeenCalledWith('comp-2');
+
+    const upButtons = screen.getAllByRole('button', { name: 'Move up' });
+    fireEvent.click(upButtons[1]);
+    expect(mockOnMoveUp).toHaveBeenCalledWith('comp-2');
+
+    const downButtons = screen.getAllByRole('button', { name: 'Move down' });
+    fireEvent.click(downButtons[1]);
+    expect(mockOnMoveDown).toHaveBeenCalledWith('comp-2');
+
+    const delButtons = screen.getAllByRole('button', { name: 'Delete' });
+    fireEvent.click(delButtons[1]);
+    expect(mockOnDelete).toHaveBeenCalledWith('comp-2');
+
+    const editButtons = screen.getAllByRole('button', { name: 'Edit properties' });
+    fireEvent.click(editButtons[1]);
+    // Depending on propagation, clicking edit properties also selects the component
+    // we just want to ensure it doesn't crash here.
+  });
 });

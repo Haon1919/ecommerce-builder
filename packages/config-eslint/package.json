@@ -1,0 +1,13 @@
+{
+    "name": "@ecommerce-builder/config-eslint",
+    "version": "1.0.0",
+    "private": true,
+    "files": [
+        "index.js",
+        "next.js"
+    ],
+    "peerDependencies": {
+        "eslint": "^8.57.0",
+        "typescript": "^5.0.0"
+    }
+}

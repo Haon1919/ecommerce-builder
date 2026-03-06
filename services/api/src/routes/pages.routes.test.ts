@@ -21,10 +21,10 @@ app.use(express.json());
 const mockedAuth = AuthMiddleware as jest.Mocked<typeof AuthMiddleware>;
 mockedAuth.requireStoreAdmin.mockImplementation((req: any, res: any, next: any) => next());
 mockedAuth.optionalAuth.mockImplementation((req: any, res: any, next: any) => {
-    if (req.headers['authorization']?.includes('admin')) {
-        req.user = { storeId: 'store-1', type: 'USER' };
-    }
-    next();
+  if (req.headers['authorization']?.includes('admin')) {
+    req.user = { storeId: 'store-1', type: 'USER' };
+  }
+  next();
 });
 app.use('/', pagesRouter);
 
@@ -44,7 +44,7 @@ describe('Pages Routes', () => {
   describe('GET /:storeId/pages', () => {
     it('should return a list of pages for the store', async () => {
       mockedPrisma.page.findMany.mockResolvedValue([samplePage] as any);
-      const res = await request(app).get(`/${storeId}/pages`);
+      const res = await request(app).get(`/${storeId}/pages`).set('Authorization', 'Bearer admin-token');
       expect(res.status).toBe(200);
       expect(res.body.length).toBe(1);
       expect(res.body[0].slug).toBe('home');
@@ -54,23 +54,23 @@ describe('Pages Routes', () => {
   // --- GET /:storeId/pages/:slug ---
   describe('GET /:storeId/pages/:slug', () => {
     it('should return a published page to the public', async () => {
-        mockedPrisma.page.findFirst.mockResolvedValue(samplePage as any);
-        const res = await request(app).get(`/${storeId}/pages/home`);
-        expect(res.status).toBe(200);
-        expect(res.body.id).toBe(pageId);
+      mockedPrisma.page.findFirst.mockResolvedValue(samplePage as any);
+      const res = await request(app).get(`/${storeId}/pages/home`);
+      expect(res.status).toBe(200);
+      expect(res.body.id).toBe(pageId);
     });
 
     it('should return 404 for an unpublished page to the public', async () => {
-        mockedPrisma.page.findFirst.mockResolvedValue(null);
-        const res = await request(app).get(`/${storeId}/pages/draft`);
-        expect(res.status).toBe(404);
+      mockedPrisma.page.findFirst.mockResolvedValue(null);
+      const res = await request(app).get(`/${storeId}/pages/draft`);
+      expect(res.status).toBe(404);
     });
 
     it('should return an unpublished page to an admin', async () => {
-        mockedPrisma.page.findFirst.mockResolvedValue(unpublishedPage as any);
-        const res = await request(app).get(`/${storeId}/pages/draft`).set('Authorization', 'Bearer admin-token');
-        expect(res.status).toBe(200);
-        expect(res.body.id).toBe('page-2');
+      mockedPrisma.page.findFirst.mockResolvedValue(unpublishedPage as any);
+      const res = await request(app).get(`/${storeId}/pages/draft`).set('Authorization', 'Bearer admin-token');
+      expect(res.status).toBe(200);
+      expect(res.body.id).toBe('page-2');
     });
   });
 
@@ -109,29 +109,29 @@ describe('Pages Routes', () => {
   // --- POST /:storeId/pages/:pageId/publish ---
   describe('POST /:storeId/pages/:pageId/publish', () => {
     it('should update the published status of a page', async () => {
-        mockedPrisma.page.findFirst.mockResolvedValue(samplePage as any);
-        mockedPrisma.page.update.mockResolvedValue({ ...samplePage, published: false } as any);
+      mockedPrisma.page.findFirst.mockResolvedValue(samplePage as any);
+      mockedPrisma.page.update.mockResolvedValue({ ...samplePage, published: false } as any);
 
-        const res = await request(app).post(`/${storeId}/pages/${pageId}/publish`).send({ published: false });
+      const res = await request(app).post(`/${storeId}/pages/${pageId}/publish`).send({ published: false });
 
-        expect(res.status).toBe(200);
-        expect(mockedPrisma.page.update).toHaveBeenCalledWith({
-            where: { id: pageId },
-            data: { published: false }
-        });
+      expect(res.status).toBe(200);
+      expect(mockedPrisma.page.update).toHaveBeenCalledWith({
+        where: { id: pageId },
+        data: { published: false }
+      });
     });
   });
 
   // --- POST /:storeId/configure ---
   describe('POST /:storeId/configure', () => {
     it('should mark a store as configured', async () => {
-        mockedPrisma.store.update.mockResolvedValue({} as any);
-        const res = await request(app).post(`/${storeId}/configure`);
-        expect(res.status).toBe(200);
-        expect(mockedPrisma.store.update).toHaveBeenCalledWith({
-            where: { id: storeId },
-            data: { configured: true }
-        });
+      mockedPrisma.store.update.mockResolvedValue({} as any);
+      const res = await request(app).post(`/${storeId}/configure`);
+      expect(res.status).toBe(200);
+      expect(mockedPrisma.store.update).toHaveBeenCalledWith({
+        where: { id: storeId },
+        data: { configured: true }
+      });
     });
   });
 });

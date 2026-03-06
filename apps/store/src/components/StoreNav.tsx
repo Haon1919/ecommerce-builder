@@ -5,6 +5,7 @@ import { ShoppingCart, Menu, X } from 'lucide-react';
 import { useState } from 'react';
 import { useCartStore } from '@/lib/cart';
 import type { StoreInfo } from '@/types';
+import { ThemeToggle } from './theme-toggle';
 
 export function StoreNav({ store }: { store: StoreInfo }) {
   const params = useParams<{ storeSlug: string }>();
@@ -13,7 +14,7 @@ export function StoreNav({ store }: { store: StoreInfo }) {
   const [menuOpen, setMenuOpen] = useState(false);
 
   return (
-    <nav className="bg-white border-b border-gray-100 sticky top-0 z-40 shadow-sm">
+    <nav className="bg-white dark:bg-gray-900 border-b border-gray-100 dark:border-gray-800 sticky top-0 z-40 shadow-sm transition-colors">
       <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
         <Link href={`/${slug}`} className="flex items-center gap-3">
           {store.logoUrl ? (
@@ -25,13 +26,14 @@ export function StoreNav({ store }: { store: StoreInfo }) {
 
         {/* Desktop nav */}
         <div className="hidden md:flex items-center gap-8">
-          <Link href={`/${slug}`} className="text-sm text-gray-600 hover:text-gray-900 font-medium">Home</Link>
-          <Link href={`/${slug}/products`} className="text-sm text-gray-600 hover:text-gray-900 font-medium">Products</Link>
-          <Link href={`/${slug}/contact`} className="text-sm text-gray-600 hover:text-gray-900 font-medium">Contact</Link>
+          <Link href={`/${slug}`} className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium">Home</Link>
+          <Link href={`/${slug}/products`} className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium">Products</Link>
+          <Link href={`/${slug}/contact`} className="text-sm text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white font-medium">Contact</Link>
         </div>
 
         <div className="flex items-center gap-3">
-          <Link href={`/${slug}/cart`} className="relative p-2 text-gray-600 hover:text-gray-900" aria-label="View shopping cart">
+          <ThemeToggle />
+          <Link href={`/${slug}/cart`} className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors" aria-label="View shopping cart">
             <ShoppingCart className="w-5 h-5" />
             {totalItems > 0 && (
               <span
@@ -42,7 +44,7 @@ export function StoreNav({ store }: { store: StoreInfo }) {
               </span>
             )}
           </Link>
-          <button className="md:hidden p-2 text-gray-600" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
+          <button className="md:hidden p-2 text-gray-600 dark:text-gray-300 dark:hover:text-white" onClick={() => setMenuOpen(!menuOpen)} aria-label="Toggle menu">
             {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
         </div>
@@ -50,10 +52,10 @@ export function StoreNav({ store }: { store: StoreInfo }) {
 
       {/* Mobile menu */}
       {menuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white px-6 py-4 space-y-3">
-          <Link href={`/${slug}`} className="block text-sm text-gray-700 font-medium py-2" onClick={() => setMenuOpen(false)}>Home</Link>
-          <Link href={`/${slug}/products`} className="block text-sm text-gray-700 font-medium py-2" onClick={() => setMenuOpen(false)}>Products</Link>
-          <Link href={`/${slug}/contact`} className="block text-sm text-gray-700 font-medium py-2" onClick={() => setMenuOpen(false)}>Contact</Link>
+        <div className="md:hidden border-t border-gray-100 dark:border-gray-800 bg-white dark:bg-gray-900 px-6 py-4 space-y-3">
+          <Link href={`/${slug}`} className="block text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white font-medium py-2" onClick={() => setMenuOpen(false)}>Home</Link>
+          <Link href={`/${slug}/products`} className="block text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white font-medium py-2" onClick={() => setMenuOpen(false)}>Products</Link>
+          <Link href={`/${slug}/contact`} className="block text-sm text-gray-700 dark:text-gray-200 hover:text-gray-900 dark:hover:text-white font-medium py-2" onClick={() => setMenuOpen(false)}>Contact</Link>
         </div>
       )}
     </nav>
