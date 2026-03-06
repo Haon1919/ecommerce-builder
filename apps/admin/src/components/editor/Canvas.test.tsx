@@ -37,7 +37,7 @@ describe('Canvas', () => {
 
   it('should render the empty state message when no components are provided', () => {
     render(<Canvas components={[]} selectedId={null} onSelect={mockOnSelect} />);
-    expect(screen.getByText('Drag components here')).toBeInTheDocument();
+    expect(screen.getByText('Start building your page')).toBeInTheDocument();
   });
 
   it('should render the provided components', () => {
@@ -57,28 +57,29 @@ describe('Canvas', () => {
     const { container } = render(<Canvas components={sampleComponents} selectedId={'comp-1'} onSelect={mockOnSelect} />);
     // The first child of the container is the main div with the onClick handler
     if (container.firstChild) {
-        fireEvent.click(container.firstChild);
+      fireEvent.click(container.firstChild);
     }
     expect(mockOnSelect).toHaveBeenCalledWith(null);
   });
 
   it('should apply selected styles to the selected component', () => {
     render(<Canvas components={sampleComponents} selectedId={'comp-1'} onSelect={mockOnSelect} />);
-    
+
     const headingElement = screen.getByText('My Awesome Heading');
-    // Find the sortable wrapper div, which is a couple of levels up and has the border class
+    // Find the sortable wrapper div, which is a couple of levels up and has the ring class
     const wrapperDiv = headingElement.closest('.relative');
 
-    expect(wrapperDiv).toHaveClass('border-primary-500');
+    expect(wrapperDiv).toHaveClass('ring-2');
+    expect(wrapperDiv).toHaveClass('ring-primary-500');
   });
 
   it('should not apply selected styles to unselected components', () => {
     render(<Canvas components={sampleComponents} selectedId={'comp-1'} onSelect={mockOnSelect} />);
-    
+
     const textElement = screen.getByText('Some paragraph text.');
     const wrapperDiv = textElement.closest('.relative');
 
-    expect(wrapperDiv).not.toHaveClass('border-primary-500');
-    expect(wrapperDiv).toHaveClass('border-transparent');
+    expect(wrapperDiv).not.toHaveClass('ring-2');
+    expect(wrapperDiv).not.toHaveClass('ring-primary-500');
   });
 });

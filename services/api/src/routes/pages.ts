@@ -15,24 +15,42 @@ const componentSchema = z.object({
 const pageSchema = z.object({
   slug: z.string().regex(/^[a-z0-9-/]*$/),
   title: z.string().min(1),
-  type: z.enum(['LANDING','PRODUCTS','PRODUCT_DETAIL','CART','CHECKOUT','CONFIRMATION','CONTACT','ABOUT','CUSTOM']).optional(),
+  type: z.enum(['LANDING', 'PRODUCTS', 'PRODUCT_DETAIL', 'CART', 'CHECKOUT', 'CONFIRMATION', 'CONTACT', 'ABOUT', 'CUSTOM']).optional(),
   layout: z.array(componentSchema).default([]),
   seoTitle: z.string().optional(),
   seoDesc: z.string().optional(),
   published: z.boolean().default(false),
 });
 
-// GET /stores/:storeId/pages - list all pages (admin)
-router.get('/:storeId/pages', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+// GET /stores/:storeId/pages - combined endpoint
+// Admin users get the full page list; unauthenticated storefront requests
+// get just the root/landing page (empty slug).
+router.get('/:storeId/pages', optionalAuth, async (req: Request, res: Response): Promise<void> => {
   const storeId = req.params.storeId as string;
+  const isAdmin = req.user?.storeId === storeId || req.user?.type === 'SUPER_ADMIN';
 
-  const pages = await prisma.page.findMany({
-    where: { storeId },
-    orderBy: { type: 'asc' },
-    select: { id: true, slug: true, title: true, type: true, published: true, updatedAt: true },
+  if (isAdmin) {
+    // Admin: return the full page list
+    const pages = await prisma.page.findMany({
+      where: { storeId },
+      orderBy: { type: 'asc' },
+      select: { id: true, slug: true, title: true, type: true, published: true, updatedAt: true },
+    });
+    res.json(pages);
+    return;
+  }
+
+  // Public: return the root landing page
+  const page = await prisma.page.findFirst({
+    where: { storeId, slug: '', published: true },
   });
 
-  res.json(pages);
+  if (!page) {
+    res.status(404).json({ error: 'Page not found' });
+    return;
+  }
+
+  res.json(page);
 });
 
 // GET /stores/:storeId/pages/:slug - get page by slug (public)

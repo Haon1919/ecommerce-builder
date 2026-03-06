@@ -1,9 +1,60 @@
 'use client';
-import { useDroppable, useDraggable } from '@dnd-kit/core';
+import { useDroppable } from '@dnd-kit/core';
 import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { PageComponent } from '@/types';
-import { GripVertical, Settings } from 'lucide-react';
+import {
+  GripVertical, Settings, Copy, ArrowUp, ArrowDown, Trash2,
+  Sparkles, Flag, MessageSquareQuote, HelpCircle,
+  ShoppingBag, Star, GalleryHorizontalEnd,
+  MousePointerClick, Mail, Newspaper,
+  Type, AlignLeft, ImageIcon, PlayCircle,
+  Layout, Columns2, Columns3, Minus, MoveVertical, MousePointer,
+} from 'lucide-react';
+
+const TYPE_COLORS: Record<string, string> = {
+  HeroSection: 'bg-indigo-500',
+  Heading: 'bg-emerald-500',
+  Text: 'bg-teal-500',
+  Image: 'bg-cyan-500',
+  Video: 'bg-sky-500',
+  Button: 'bg-rose-500',
+  Banner: 'bg-amber-500',
+  Testimonial: 'bg-orange-500',
+  FAQ: 'bg-yellow-600',
+  ProductGrid: 'bg-violet-500',
+  FeaturedProducts: 'bg-purple-500',
+  ProductCarousel: 'bg-fuchsia-500',
+  ContactForm: 'bg-pink-500',
+  NewsletterForm: 'bg-red-400',
+  Section: 'bg-blue-500',
+  TwoColumns: 'bg-blue-400',
+  ThreeColumns: 'bg-blue-300',
+  Spacer: 'bg-gray-400',
+  Divider: 'bg-gray-500',
+};
+
+const TYPE_ICONS: Record<string, React.ReactNode> = {
+  HeroSection: <Sparkles className="w-3 h-3" />,
+  Heading: <Type className="w-3 h-3" />,
+  Text: <AlignLeft className="w-3 h-3" />,
+  Image: <ImageIcon className="w-3 h-3" />,
+  Video: <PlayCircle className="w-3 h-3" />,
+  Button: <MousePointerClick className="w-3 h-3" />,
+  Banner: <Flag className="w-3 h-3" />,
+  Testimonial: <MessageSquareQuote className="w-3 h-3" />,
+  FAQ: <HelpCircle className="w-3 h-3" />,
+  ProductGrid: <ShoppingBag className="w-3 h-3" />,
+  FeaturedProducts: <Star className="w-3 h-3" />,
+  ProductCarousel: <GalleryHorizontalEnd className="w-3 h-3" />,
+  ContactForm: <Mail className="w-3 h-3" />,
+  NewsletterForm: <Newspaper className="w-3 h-3" />,
+  Section: <Layout className="w-3 h-3" />,
+  TwoColumns: <Columns2 className="w-3 h-3" />,
+  ThreeColumns: <Columns3 className="w-3 h-3" />,
+  Spacer: <MoveVertical className="w-3 h-3" />,
+  Divider: <Minus className="w-3 h-3" />,
+};
 
 // Visual preview of each component type
 function ComponentPreview({ component }: { component: PageComponent }) {
@@ -55,8 +106,9 @@ function ComponentPreview({ component }: { component: PageComponent }) {
               className="max-h-64 object-cover"
             />
           ) : (
-            <div className="w-full h-48 bg-gray-100 rounded-xl flex items-center justify-center text-gray-400 text-sm border-2 border-dashed border-gray-300">
-              🖼 No image set — add URL in properties
+            <div className="w-full h-48 bg-gradient-to-br from-gray-50 to-gray-100 rounded-xl flex flex-col items-center justify-center text-gray-400 text-sm border-2 border-dashed border-gray-200">
+              <ImageIcon className="w-8 h-8 mb-2 text-gray-300" />
+              <span className="text-xs">Add image URL in properties</span>
             </div>
           )}
         </div>
@@ -86,7 +138,12 @@ function ComponentPreview({ component }: { component: PageComponent }) {
         </div>
       );
     case 'Spacer':
-      return <div style={{ height: `${(p.height as number) ?? 40}px` }} className="bg-transparent" />;
+      return (
+        <div style={{ height: `${(p.height as number) ?? 40}px` }} className="bg-transparent relative">
+          <div className="absolute inset-x-0 top-1/2 border-t border-dashed border-gray-200" />
+          <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 text-[10px] text-gray-400 bg-white px-2">{(p.height as number) ?? 40}px</span>
+        </div>
+      );
     case 'Divider':
       return (
         <div className="px-4 py-2">
@@ -95,13 +152,15 @@ function ComponentPreview({ component }: { component: PageComponent }) {
       );
     case 'ProductGrid':
       return (
-        <div className="px-4 py-8 bg-gray-50">
+        <div className="px-4 py-8 bg-gradient-to-b from-gray-50/50 to-white">
           <div className={`grid grid-cols-${(p.columns as number) ?? 3} gap-4`}>
             {[...Array(3)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl p-4 border border-gray-200">
-                <div className="h-32 bg-gray-100 rounded-lg mb-3" />
-                <div className="h-4 bg-gray-200 rounded mb-2" />
-                <div className="h-4 bg-gray-100 rounded w-2/3" />
+              <div key={i} className="bg-white rounded-xl p-4 border border-gray-100 shadow-sm">
+                <div className="h-32 bg-gradient-to-br from-gray-100 to-gray-50 rounded-lg mb-3 flex items-center justify-center">
+                  <ShoppingBag className="w-8 h-8 text-gray-200" />
+                </div>
+                <div className="h-4 bg-gray-200 rounded-full mb-2 animate-pulse" />
+                <div className="h-4 bg-gray-100 rounded-full w-2/3 animate-pulse" />
               </div>
             ))}
           </div>
@@ -113,10 +172,12 @@ function ComponentPreview({ component }: { component: PageComponent }) {
           <h3 className="text-2xl font-bold text-gray-900 text-center mb-6">{(p.title as string) ?? 'Featured Products'}</h3>
           <div className="grid grid-cols-4 gap-4">
             {[...Array(4)].map((_, i) => (
-              <div key={i} className="bg-white rounded-xl p-3 border border-gray-200">
-                <div className="h-24 bg-gray-100 rounded-lg mb-2" />
-                <div className="h-3 bg-gray-200 rounded mb-1" />
-                <div className="h-3 bg-primary-100 rounded w-1/2" />
+              <div key={i} className="bg-white rounded-xl p-3 border border-gray-100 shadow-sm">
+                <div className="h-24 bg-gradient-to-br from-gray-100 to-gray-50 rounded-lg mb-2 flex items-center justify-center">
+                  <Star className="w-6 h-6 text-gray-200" />
+                </div>
+                <div className="h-3 bg-gray-200 rounded-full mb-1 animate-pulse" />
+                <div className="h-3 bg-primary-100 rounded-full w-1/2 animate-pulse" />
               </div>
             ))}
           </div>
@@ -124,7 +185,7 @@ function ComponentPreview({ component }: { component: PageComponent }) {
       );
     case 'Testimonial':
       return (
-        <div className="px-8 py-8 text-center bg-gray-50">
+        <div className="px-8 py-8 text-center bg-gradient-to-b from-gray-50 to-white">
           <div className="text-yellow-400 text-xl mb-3">{'★'.repeat((p.rating as number) ?? 5)}</div>
           <p className="text-lg text-gray-700 italic mb-4">&quot;{(p.quote as string) ?? 'Great product!'}&quot;</p>
           <p className="font-semibold text-gray-900">— {(p.author as string) ?? 'Customer'}</p>
@@ -137,9 +198,21 @@ function ComponentPreview({ component }: { component: PageComponent }) {
           <p className="text-gray-500 mb-4">{(p.subtitle as string) ?? ''}</p>
           <div className="space-y-3">
             {['Name', 'Email', 'Message'].map((f) => (
-              <div key={f} className="bg-gray-100 rounded-lg h-10 px-3 flex items-center text-sm text-gray-400">{f}</div>
+              <div key={f} className="bg-gray-50 rounded-lg h-10 px-3 flex items-center text-sm text-gray-400 border border-gray-100">{f}</div>
             ))}
             <div className="bg-primary-500 text-white rounded-lg py-2.5 text-center text-sm font-medium">Send Message</div>
+          </div>
+        </div>
+      );
+    case 'NewsletterForm':
+      return (
+        <div className="px-8 py-8 text-center bg-gradient-to-b from-gray-50 to-white">
+          <h3 className="text-xl font-bold text-gray-900 mb-2">{(p.title as string) ?? 'Subscribe to Our Newsletter'}</h3>
+          <div className="flex gap-2 max-w-md mx-auto mt-4">
+            <div className="flex-1 bg-gray-50 rounded-lg h-10 px-3 flex items-center text-sm text-gray-400 border border-gray-100">
+              {(p.placeholder as string) ?? 'Enter your email'}
+            </div>
+            <div className="bg-primary-500 text-white rounded-lg px-4 flex items-center text-sm font-medium">Subscribe</div>
           </div>
         </div>
       );
@@ -153,48 +226,110 @@ function ComponentPreview({ component }: { component: PageComponent }) {
 }
 
 function SortableComponent({
-  component, isSelected, onSelect
+  component, isSelected, onSelect, onDuplicate, onMoveUp, onMoveDown, onDelete, isFirst, isLast,
 }: {
   component: PageComponent;
   isSelected: boolean;
   onSelect: (id: string) => void;
+  onDuplicate?: (id: string) => void;
+  onMoveUp?: (id: string) => void;
+  onMoveDown?: (id: string) => void;
+  onDelete?: (id: string) => void;
+  isFirst: boolean;
+  isLast: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: component.id,
     data: { type: 'canvas-component', component },
   });
 
+  const colorClass = TYPE_COLORS[component.type] ?? 'bg-gray-400';
+
   return (
     <div
       ref={setNodeRef}
       style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`relative group border-2 transition-all ${isSelected
-          ? 'border-primary-500 shadow-md'
-          : 'border-transparent hover:border-gray-300'
-        } ${isDragging ? 'opacity-50 shadow-xl z-50' : ''}`}
+      className={`relative group transition-all duration-200 ${isSelected
+          ? 'ring-2 ring-primary-500 ring-offset-2 shadow-lg shadow-primary-100/50 z-20'
+          : 'hover:ring-1 hover:ring-gray-300 hover:ring-offset-1'
+        } ${isDragging ? 'opacity-40 shadow-2xl z-50 scale-[1.02]' : ''}`}
     >
       {/* Component content */}
       <div onClick={() => onSelect(component.id)} className="cursor-pointer">
         <ComponentPreview component={component} />
       </div>
 
-      {/* Drag handle + type label (shown on hover/select) */}
-      <div className={`absolute top-2 left-2 flex items-center gap-1 bg-white border border-gray-200 rounded-md px-2 py-0.5 shadow-sm text-xs text-gray-600 font-medium transition-opacity ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-        }`}>
-        <span {...attributes} {...listeners} className="cursor-grab">
-          <GripVertical className="w-3 h-3 text-gray-400" />
+      {/* Floating toolbar — appears on hover/select */}
+      <div className={`absolute -top-3 left-1/2 -translate-x-1/2 flex items-center gap-0.5 bg-white border border-gray-200 rounded-lg px-1 py-0.5 shadow-lg transition-all duration-200 ${
+        isSelected ? 'opacity-100 scale-100' : 'opacity-0 group-hover:opacity-100 scale-95 group-hover:scale-100'
+      }`}>
+        {/* Drag handle */}
+        <span {...attributes} {...listeners} className="cursor-grab p-1 hover:bg-gray-100 rounded" title="Drag to reorder">
+          <GripVertical className="w-3.5 h-3.5 text-gray-400" />
         </span>
-        {component.type}
+
+        {/* Type badge */}
+        <span className={`flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-semibold text-white ${colorClass}`}>
+          {TYPE_ICONS[component.type]}
+          {component.type}
+        </span>
+
+        <div className="w-px h-4 bg-gray-200 mx-0.5" />
+
+        {/* Quick actions */}
+        {onMoveUp && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoveUp(component.id); }}
+            disabled={isFirst}
+            className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:bg-transparent"
+            title="Move up"
+          >
+            <ArrowUp className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {onMoveDown && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onMoveDown(component.id); }}
+            disabled={isLast}
+            className="p-1 hover:bg-gray-100 rounded text-gray-500 hover:text-gray-700 disabled:opacity-30 disabled:hover:bg-transparent"
+            title="Move down"
+          >
+            <ArrowDown className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {onDuplicate && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDuplicate(component.id); }}
+            className="p-1 hover:bg-blue-50 rounded text-gray-500 hover:text-blue-600"
+            title="Duplicate"
+          >
+            <Copy className="w-3.5 h-3.5" />
+          </button>
+        )}
+        {onDelete && (
+          <button
+            onClick={(e) => { e.stopPropagation(); onDelete(component.id); }}
+            className="p-1 hover:bg-red-50 rounded text-gray-500 hover:text-red-600"
+            title="Delete"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        )}
+
+        {/* Settings */}
+        <button
+          onClick={(e) => { e.stopPropagation(); onSelect(component.id); }}
+          className="p-1 hover:bg-primary-50 rounded text-gray-500 hover:text-primary-600"
+          title="Edit properties"
+        >
+          <Settings className="w-3.5 h-3.5" />
+        </button>
       </div>
 
-      {/* Settings button */}
-      <button
-        onClick={(e) => { e.stopPropagation(); onSelect(component.id); }}
-        className={`absolute top-2 right-2 p-1.5 bg-white border border-gray-200 rounded-md shadow-sm transition-opacity hover:bg-primary-50 hover:border-primary-300 ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
-          }`}
-      >
-        <Settings className="w-3.5 h-3.5 text-gray-500" />
-      </button>
+      {/* Order indicator — left edge */}
+      <div className={`absolute left-0 top-0 bottom-0 w-1 transition-colors duration-200 ${
+        isSelected ? `${colorClass.replace('bg-', 'bg-')}` : 'bg-transparent group-hover:bg-gray-200'
+      }`} />
     </div>
   );
 }
@@ -203,41 +338,75 @@ interface CanvasProps {
   components: PageComponent[];
   selectedId: string | null;
   onSelect: (id: string | null) => void;
+  onDuplicate?: (id: string) => void;
+  onMoveUp?: (id: string) => void;
+  onMoveDown?: (id: string) => void;
+  onDelete?: (id: string) => void;
 }
 
-export function Canvas({ components, selectedId, onSelect }: CanvasProps) {
+export function Canvas({ components, selectedId, onSelect, onDuplicate, onMoveUp, onMoveDown, onDelete }: CanvasProps) {
   const { setNodeRef, isOver } = useDroppable({ id: 'canvas' });
 
   return (
     <div
       ref={setNodeRef}
       onClick={(e) => { if (e.target === e.currentTarget) onSelect(null); }}
-      className={`flex-1 min-h-full overflow-y-auto transition-colors ${isOver ? 'bg-primary-50 ring-2 ring-primary-300 ring-inset' : 'bg-white'
+      className={`flex-1 min-h-full overflow-y-auto transition-all duration-300 ${isOver
+          ? 'bg-primary-50/50 ring-2 ring-primary-400/40 ring-inset'
+          : 'bg-white'
         }`}
     >
       {components.length === 0 ? (
-        <div className={`flex flex-col items-center justify-center h-full min-h-[400px] text-center transition-colors ${isOver ? 'text-primary-600' : 'text-gray-400'
+        <div className={`flex flex-col items-center justify-center h-full min-h-[500px] text-center transition-colors ${
+          isOver ? 'text-primary-600' : 'text-gray-400'
+        }`}>
+          <div className={`w-20 h-20 rounded-2xl flex items-center justify-center mb-6 transition-all duration-300 ${
+            isOver
+              ? 'bg-primary-100 scale-110 shadow-lg shadow-primary-200/50'
+              : 'bg-gray-100'
           }`}>
-          <div className="text-6xl mb-4">⊞</div>
-          <p className="text-lg font-medium">Drag components here</p>
-          <p className="text-sm mt-1">or drag from the palette on the left</p>
+            <MousePointer className={`w-8 h-8 transition-colors ${isOver ? 'text-primary-500' : 'text-gray-300'}`} />
+          </div>
+          <p className="text-lg font-semibold mb-1">
+            {isOver ? 'Drop it here!' : 'Start building your page'}
+          </p>
+          <p className="text-sm max-w-xs mx-auto">
+            {isOver
+              ? 'Release to add this component'
+              : 'Drag components from the left panel, or browse the palette to get started'
+            }
+          </p>
+          {!isOver && (
+            <div className="flex items-center gap-3 mt-6 text-xs text-gray-400">
+              <kbd className="px-2 py-1 bg-gray-100 rounded border border-gray-200 font-mono">⌘Z</kbd>
+              <span>undo</span>
+              <kbd className="px-2 py-1 bg-gray-100 rounded border border-gray-200 font-mono">⌘⇧Z</kbd>
+              <span>redo</span>
+            </div>
+          )}
         </div>
       ) : (
         <SortableContext items={components.map((c) => c.id)} strategy={verticalListSortingStrategy}>
-          <div className="divide-y divide-gray-100">
-            {components.map((comp) => (
+          <div className="divide-y divide-gray-50 py-2">
+            {components.map((comp, index) => (
               <SortableComponent
                 key={comp.id}
                 component={comp}
                 isSelected={selectedId === comp.id}
                 onSelect={onSelect}
+                onDuplicate={onDuplicate}
+                onMoveUp={onMoveUp}
+                onMoveDown={onMoveDown}
+                onDelete={onDelete}
+                isFirst={index === 0}
+                isLast={index === components.length - 1}
               />
             ))}
           </div>
           {/* Drop zone at bottom */}
           {isOver && (
-            <div className="h-16 border-2 border-dashed border-primary-400 rounded-lg mx-4 my-4 flex items-center justify-center text-primary-500 text-sm font-medium">
-              Drop here
+            <div className="h-20 border-2 border-dashed border-primary-300 rounded-xl mx-4 my-4 flex items-center justify-center text-primary-500 bg-primary-50/50 transition-all animate-pulse">
+              <span className="text-sm font-medium">Drop component here</span>
             </div>
           )}
         </SortableContext>

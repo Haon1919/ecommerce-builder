@@ -62,6 +62,18 @@ export function requestLogger(req: Request, res: Response, next: NextFunction): 
  */
 export function responseTime(req: Request, res: Response, next: NextFunction): void {
   const start = process.hrtime.bigint();
+
+  // Monkey-patch writeHead to inject the header before it's sent
+  const originalWriteHead = res.writeHead.bind(res);
+  (res as any).writeHead = function (statusCode: number, ...args: any[]) {
+    const durationNs = Number(process.hrtime.bigint() - start);
+    const durationMs = durationNs / 1_000_000;
+    if (!res.headersSent) {
+      res.setHeader('X-Response-Time', `${durationMs}ms`);
+    }
+    return originalWriteHead(statusCode, ...args);
+  };
+
   res.on('finish', () => {
     const durationNs = Number(process.hrtime.bigint() - start);
     const durationMs = durationNs / 1_000_000;

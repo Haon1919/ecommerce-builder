@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../db';
 import { requireStoreAdmin, requireSuperAdmin } from '../middleware/auth';
 import { encrypt, decrypt } from '../services/encryption';
+import { processAdminChat } from '../services/admin-gemini';
 
 const router = Router();
 
@@ -140,6 +141,29 @@ router.put('/:storeId/settings', requireStoreAdmin, async (req: Request, res: Re
     stripeSecretKey: settings.stripeSecretKey ? '***configured***' : null,
     geminiApiKeyEnc: settings.geminiApiKeyEnc ? '***configured***' : null,
   });
+});
+
+// POST /stores/:storeId/admin-chat - admin chat with store context
+router.post('/:storeId/admin-chat', requireStoreAdmin, async (req: Request, res: Response): Promise<void> => {
+  const storeId = req.params.storeId as string;
+  const { message, history = [] } = req.body;
+
+  if (!message) {
+    res.status(400).json({ error: 'Message is required' });
+    return;
+  }
+
+  // Retrieve gemini API key (if custom one is set)
+  const storeSettings = await prisma.storeSettings.findUnique({
+    where: { storeId },
+    select: { geminiApiKeyEnc: true },
+  });
+
+  const storeGeminiKey = storeSettings?.geminiApiKeyEnc ? decrypt(storeSettings.geminiApiKeyEnc) : undefined;
+
+  const result = await processAdminChat(storeId, message, history, storeGeminiKey);
+
+  res.json(result);
 });
 
 // GET /stores - super admin list all stores

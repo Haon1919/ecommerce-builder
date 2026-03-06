@@ -62,6 +62,8 @@ export const storeApi = {
   update: (storeId: string, data: unknown) => api.put(`/stores/${storeId}`, data).then((r) => r.data),
   updateSettings: (storeId: string, data: unknown) => api.put(`/stores/${storeId}/settings`, data).then((r) => r.data),
   configure: (storeId: string) => api.post(`/stores/${storeId}/configure`).then((r) => r.data),
+  adminChat: (storeId: string, payload: { message: string; history?: any[] }) =>
+    api.post(`/stores/${storeId}/admin-chat`, payload).then((r) => r.data),
 };
 
 // ==================== PAGES ====================

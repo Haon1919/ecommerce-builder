@@ -1,0 +1,45 @@
+name: Performance Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: 'Select the k6 scenario to run'
+        required: true
+        default: 'storefront-load.js'
+        type: choice
+        options:
+          - storefront-load.js
+          - api-checkout-load.js
+      target_url:
+        description: 'The target URL to test (e.g., https://your-storefront.com)'
+        required: false
+        type: string
+      store_id:
+        description: 'Store ID (only used for api-checkout-load.js)'
+        required: false
+        default: 'demo-store-1'
+        type: string
+
+jobs:
+  performance-test:
+    name: Run k6 scenario
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run k6 load test
+        uses: grafana/k6-action@v0.3.1
+        with:
+          filename: tests/performance/scenarios/${{ github.event.inputs.scenario }}
+          flags: --tag scenario=${{ github.event.inputs.scenario }}
+        env:
+          TARGET_URL: ${{ github.event.inputs.target_url }}
+          STORE_ID: ${{ github.event.inputs.store_id }}
+
+      - name: Summary
+        run: |
+          echo "Performance test for ${{ github.event.inputs.scenario }} completed."
+          echo "View the k6 summary in the 'Run k6 load test' step output above."

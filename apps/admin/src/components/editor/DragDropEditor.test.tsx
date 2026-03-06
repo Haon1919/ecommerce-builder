@@ -86,12 +86,12 @@ describe('DragDropEditor', () => {
     });
     
     expect(mockOnSave).toHaveBeenCalledWith(initialLayout, false);
-    await waitFor(() => expect(screen.getByText('✓ Saved')).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText('Saved')).toBeInTheDocument());
 
     act(() => {
       jest.runAllTimers();
     });
-    await waitFor(() => expect(screen.queryByText('✓ Saved')).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText('Saved')).not.toBeInTheDocument());
   });
   
   it('should call onSave with publish flag when publish button is clicked', async () => {

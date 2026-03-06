@@ -16,7 +16,7 @@ describe('ComponentPalette', () => {
   it('should render the main title and subtitle', () => {
     render(<ComponentPalette />);
     expect(screen.getByText('Components')).toBeInTheDocument();
-    expect(screen.getByText('Drag & drop onto canvas')).toBeInTheDocument();
+    expect(screen.getByText('Drag any component onto the canvas')).toBeInTheDocument();
   });
 
   it('should render all component categories', () => {
@@ -30,7 +30,7 @@ describe('ComponentPalette', () => {
 
   it('should render all palette items', () => {
     render(<ComponentPalette />);
-    
+
     PALETTE_ITEMS.forEach(item => {
       expect(screen.getByText(item.label)).toBeInTheDocument();
     });
@@ -40,7 +40,7 @@ describe('ComponentPalette', () => {
     render(<ComponentPalette />);
     // Find all elements with the 'cursor-grab' class, which is on each draggable item
     const draggableItems = screen.getAllByRole('generic', { name: '' }).filter(
-        el => el.classList.contains('cursor-grab')
+      el => el.classList.contains('cursor-grab')
     );
     expect(draggableItems.length).toBe(PALETTE_ITEMS.length);
   });

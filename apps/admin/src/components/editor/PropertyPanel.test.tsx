@@ -15,17 +15,17 @@ const headingComponent: PageComponent = {
 };
 
 const imageComponent: PageComponent = {
-    id: 'comp-image-1',
-    type: 'Image',
-    order: 1,
-    props: { src: 'https://example.com/img.png', alt: 'Test Image' },
+  id: 'comp-image-1',
+  type: 'Image',
+  order: 1,
+  props: { src: 'https://example.com/img.png', alt: 'Test Image' },
 };
 
 const noFieldsComponent: PageComponent = {
-    id: 'comp-no-fields-1',
-    type: 'TwoColumns', // A component type with no fields defined in COMPONENT_FIELDS
-    order: 2,
-    props: {},
+  id: 'comp-no-fields-1',
+  type: 'TwoColumns', // A component type with no fields defined in COMPONENT_FIELDS
+  order: 2,
+  props: {},
 }
 
 describe('PropertyPanel', () => {
@@ -36,14 +36,19 @@ describe('PropertyPanel', () => {
   it('should render the component type and title', () => {
     render(<PropertyPanel component={headingComponent} onChange={mockOnChange} onDelete={mockOnDelete} onClose={mockOnClose} />);
     expect(screen.getByText('Heading')).toBeInTheDocument();
-    expect(screen.getByText('Edit properties')).toBeInTheDocument();
+    expect(screen.getByText('Properties')).toBeInTheDocument();
   });
 
   it('should render the correct fields for a Heading component', () => {
     render(<PropertyPanel component={headingComponent} onChange={mockOnChange} onDelete={mockOnDelete} onClose={mockOnClose} />);
+    // Content tab is active by default — Text and Heading Level are on this tab
     expect(screen.getByLabelText('Text')).toBeInTheDocument();
-    expect(screen.getByLabelText('Heading Level')).toBeInTheDocument();
-    expect(screen.getByLabelText('Alignment')).toBeInTheDocument();
+    expect(screen.getByText('Heading Level')).toBeInTheDocument();
+
+    // Switch to Style tab to see Alignment and Color
+    const styleTab = screen.getByText('Style');
+    fireEvent.click(styleTab);
+    expect(screen.getByText('Alignment')).toBeInTheDocument();
     expect(screen.getByLabelText('Color')).toBeInTheDocument();
   });
 
@@ -55,12 +60,12 @@ describe('PropertyPanel', () => {
 
   it('should show a message if a component has no editable properties', () => {
     render(<PropertyPanel component={noFieldsComponent} onChange={mockOnChange} onDelete={mockOnDelete} onClose={mockOnClose} />);
-    expect(screen.getByText('No editable properties for this component.')).toBeInTheDocument();
+    expect(screen.getByText('No editable properties')).toBeInTheDocument();
   });
 
   it('should call onChange with the full updated props object when a text input changes', () => {
     render(<PropertyPanel component={headingComponent} onChange={mockOnChange} onDelete={mockOnDelete} onClose={mockOnClose} />);
-    
+
     const textInput = screen.getByLabelText('Text');
     fireEvent.change(textInput, { target: { value: 'New Heading Text' } });
 
@@ -71,11 +76,16 @@ describe('PropertyPanel', () => {
     });
   });
 
-  it('should call onChange when a select input changes', () => {
+  it('should call onChange when an alignment button is clicked', () => {
     render(<PropertyPanel component={headingComponent} onChange={mockOnChange} onDelete={mockOnDelete} onClose={mockOnClose} />);
-    
-    const alignSelect = screen.getByLabelText('Alignment');
-    fireEvent.change(alignSelect, { target: { value: 'center' } });
+
+    // Switch to Style tab to see Alignment buttons
+    const styleTab = screen.getByText('Style');
+    fireEvent.click(styleTab);
+
+    // Click the "center" alignment button by its title
+    const centerButton = screen.getByTitle('Center');
+    fireEvent.click(centerButton);
 
     expect(mockOnChange).toHaveBeenCalledWith('comp-heading-1', {
       ...headingComponent.props,
@@ -85,7 +95,7 @@ describe('PropertyPanel', () => {
 
   it('should call onDelete with the component ID when delete button is clicked', () => {
     render(<PropertyPanel component={headingComponent} onChange={mockOnChange} onDelete={mockOnDelete} onClose={mockOnClose} />);
-    
+
     const deleteButton = screen.getByTitle('Delete component');
     fireEvent.click(deleteButton);
 
@@ -95,7 +105,7 @@ describe('PropertyPanel', () => {
 
   it('should call onClose when the close button is clicked', () => {
     render(<PropertyPanel component={headingComponent} onChange={mockOnChange} onDelete={mockOnDelete} onClose={mockOnClose} />);
-    
+
     const closeButton = screen.getByRole('button', { name: /close properties panel/i });
     fireEvent.click(closeButton);
 
