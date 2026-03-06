@@ -12,6 +12,9 @@ test.describe('Admin Builder Flow', () => {
             status: 200,
             json: { user: { role: 'ADMIN', store: { id: 'demo-store', name: 'Demo Store', configured: true } } }
         }));
+        await page.route('**/api/stores/*/analytics/dashboard*', route => route.fulfill({
+            status: 200, json: { overview: { totalRevenue: 0, totalOrders: 0, pendingOrders: 0, totalProducts: 0, lowStockProducts: 0, unreadMessages: 0, chatSessions: 0 } }
+        }));
         // Ideally use API for fast authentication in setup
         // For now, doing UI login setup
         await page.goto('/login');

@@ -21,6 +21,7 @@ const sampleStore: StoreInfo = {
   slug: 'test-store',
   primaryColor: '#6366f1',
   theme: 'BOOTSTRAP',
+  tier: 'STARTER',
   logoUrl: undefined,
 };
 

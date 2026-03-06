@@ -77,14 +77,6 @@ jobs:
         working-directory: services/api
         run: npm ci
 
-      - name: TypeScript type check
-        working-directory: services/api
-        run: npx tsc --noEmit
-
-      - name: Run ESLint
-        working-directory: services/api
-        run: npx eslint src --ext .ts --max-warnings 0 || true
-
       - name: Generate Prisma client
         working-directory: services/api
         env:
@@ -96,6 +88,14 @@ jobs:
         env:
           DATABASE_URL: postgresql://test_user:test_password@localhost:5432/ecommerce_test
         run: npx prisma migrate deploy
+
+      - name: TypeScript type check
+        working-directory: services/api
+        run: npx tsc --noEmit
+
+      - name: Run ESLint
+        working-directory: services/api
+        run: npx eslint src --ext .ts --max-warnings 0 || true
 
       - name: Run unit tests with coverage
         working-directory: services/api

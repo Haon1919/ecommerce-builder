@@ -43,6 +43,14 @@ test.describe('Storefront Checkout Flow with Shipping Rates', () => {
             });
         });
 
+        await page.route('**/api/stores/*/products/prod-1', async route => {
+            await route.fulfill({
+                status: 200,
+                contentType: 'application/json',
+                body: JSON.stringify({ id: 'prod-1', name: 'Test Product', price: 10, stock: 100, images: [] })
+            });
+        });
+
         page.on('console', msg => console.log('BROWSER CONSOLE:', msg.text()));
         page.on('pageerror', err => console.log('BROWSER ERROR:', err.message));
 

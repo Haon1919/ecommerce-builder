@@ -85,7 +85,7 @@ export function TikTokFeed({ storeId, initialVideos }: { storeId: string, initia
 
     const handleAddToCart = (product: Product) => {
         addToCart({
-            id: product.id,
+            productId: product.id,
             name: product.name,
             price: Number(product.price),
             quantity: 1,

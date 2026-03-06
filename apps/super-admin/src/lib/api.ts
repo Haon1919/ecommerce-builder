@@ -82,4 +82,6 @@ export const storesApi = {
     api.get('/stores', { params }).then((r) => r.data),
   toggleActive: (storeId: string, active: boolean) =>
     api.patch(`/stores/${storeId}/active`, { active }).then((r) => r.data),
+  createStore: (data: Record<string, any>) =>
+    api.post('/stores', data).then((r) => r.data),
 };

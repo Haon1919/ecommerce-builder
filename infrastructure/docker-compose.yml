@@ -42,13 +42,18 @@ services:
       DATABASE_URL: postgresql://app_user:${DB_PASSWORD:-localdevpassword}@postgres:5432/ecommerce_builder
       JWT_SECRET: ${JWT_SECRET:-local-dev-jwt-secret-change-in-production-min-64-chars-xxxxxxxxxxxxxxxx}
       ENCRYPTION_KEY: ${ENCRYPTION_KEY:-00000000000000000000000000000000}
+      ENCRYPTION_IV_SECRET: ${ENCRYPTION_IV_SECRET:-0000000000000000}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GCP_PROJECT_ID: ${GCP_PROJECT_ID:-local}
       GCS_BUCKET_NAME: ${GCS_BUCKET_NAME:-}
       SUPER_ADMIN_EMAIL: ${SUPER_ADMIN_EMAIL:-admin@example.com}
+      SUPER_ADMIN_PASSWORD: ${SUPER_ADMIN_PASSWORD:-SuperAdmin123!}
+      DEMO_STORE_ADMIN_EMAIL: ${DEMO_STORE_ADMIN_EMAIL:-store@example.com}
+      DEMO_STORE_ADMIN_PASSWORD: ${DEMO_STORE_ADMIN_PASSWORD:-DemoStore123!}
       CORS_ORIGINS: "http://localhost:3002,http://localhost:3003,http://localhost:3004"
       LOG_LEVEL: debug
       BYPASS_TIER_CHECKS: "true"
+      SEED_STORE_SLUG: ${SEED_STORE_SLUG:-demo-store}
     volumes:
       # Hot reload in dev — mount source, not build artifacts
       - ../services/api/src:/app/src:ro
@@ -63,8 +68,8 @@ services:
   # ── Admin Panel ────────────────────────────────────────────
   admin:
     build:
-      context: ../apps/admin
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: apps/admin/Dockerfile
     restart: unless-stopped
     depends_on:
       api:
@@ -84,8 +89,8 @@ services:
   # ── Store Frontend ─────────────────────────────────────────
   store:
     build:
-      context: ../apps/store
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: apps/store/Dockerfile
     restart: unless-stopped
     depends_on:
       api:
@@ -105,8 +110,8 @@ services:
   # ── Super Admin Panel ──────────────────────────────────────
   super-admin:
     build:
-      context: ../apps/super-admin
-      dockerfile: Dockerfile
+      context: ../
+      dockerfile: apps/super-admin/Dockerfile
     restart: unless-stopped
     depends_on:
       api:

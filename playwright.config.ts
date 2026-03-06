@@ -17,7 +17,7 @@ export default defineConfig({
             testDir: './tests/e2e/admin',
             use: {
                 ...devices['Desktop Chrome'],
-                baseURL: 'http://localhost:3002',
+                baseURL: 'http://127.0.0.1:3002',
             },
         },
         {
@@ -25,7 +25,7 @@ export default defineConfig({
             testDir: './tests/e2e/store',
             use: {
                 ...devices['Desktop Chrome'],
-                baseURL: 'http://localhost:3003',
+                baseURL: 'http://127.0.0.1:3003',
             },
         },
         {
@@ -33,7 +33,7 @@ export default defineConfig({
             testDir: './tests/e2e/super-admin',
             use: {
                 ...devices['Desktop Chrome'],
-                baseURL: 'http://localhost:3004',
+                baseURL: 'http://127.0.0.1:3004',
             },
         },
     ],

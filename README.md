@@ -13,6 +13,11 @@ A white-label, multi-tenant B2B SaaS platform for launching and managing modern 
 - **Voice Commerce** — Web Speech API integration for hands-free shopping
 - **Native AR & 3D Previews** — In-browser augmented reality and generative 3D product models
 - **A/B Testing** — Built-in traffic splitting for page variants, straight from the builder
+- **Multi-Vendor Marketplace** — Stripe Connect integration for split payouts and sub-orders
+- **Global Tax Engine** — Dynamic tax calculation based on destination address and nexus configuration
+- **Advanced Order Fulfillment** — Priority-based multi-location stock deduction and split fulfillment
+- **3rd-Party App APIs** — OAuth2 flow and webhook subscriptions for external integrations
+- **Custom Domains** — Configuration for tenant storefront custom domains
 - **B2B Wholesale Portal** — Company accounts with custom price lists and bulk ordering
 - **Anomaly Detection** — KL-divergence monitoring against 7-day baselines with live alerts
 - **PII Encryption at Rest** — AES-256-CBC field-level encryption before data hits the database
@@ -162,4 +167,5 @@ Deployments are triggered automatically on merge to `main` via [`.github/workflo
 | [`SRE_GUIDE.md`](./SRE_GUIDE.md) | SREs — GCP infra, CI/CD, runbooks, disaster recovery |
 | [`SUPER_ADMIN_GUIDE.md`](./SUPER_ADMIN_GUIDE.md) | Operators — platform dashboard, tenant mgmt, incident response |
 | [`SALES_GUIDE.md`](./SALES_GUIDE.md) | Sales — product positioning, key selling points, competitive angles |
+| [`SINGLE_CONTRIBUTOR_PLAYBOOK.md`](./SINGLE_CONTRIBUTOR_PLAYBOOK.md) | Single Operators — running the B2B SaaS business |
 | [`ERROR_README.md`](./ERROR_README.md) | All — common errors and how to resolve them |

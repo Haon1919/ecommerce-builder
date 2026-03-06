@@ -141,11 +141,29 @@ test.describe('Multi-Vendor Checkout Flow', () => {
 
         await page.route('**/api/auth/login', route => route.fulfill({
             status: 200,
-            json: { token: 'fake-token', user: { id: 'admin-1', storeId } }
+            json: { token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjk5OTk5OTk5OTl9.fake', user: { id: 'admin-1', storeId, role: 'Owner' }, store: { id: storeId, slug: storeSlug, name: 'Demo Store', configured: true } }
         }));
         await page.route('**/api/auth/me', route => route.fulfill({
             status: 200,
-            json: { user: { id: 'admin-1', storeId, roles: ['Owner'] } }
+            json: { user: { id: 'admin-1', storeId, role: 'Owner', store: { id: storeId, slug: storeSlug, name: 'Demo Store', configured: true } } }
+        }));
+        // Mock Analytics for the dashboard
+        await page.route(`**/api/stores/${storeId}/analytics/dashboard*`, route => route.fulfill({
+            status: 200,
+            json: {
+                overview: {
+                    totalRevenue: 0,
+                    totalOrders: 0,
+                    pendingOrders: 0,
+                    totalProducts: 0,
+                    lowStockProducts: 0,
+                    unreadMessages: 0,
+                    chatSessions: 0
+                },
+                recentOrders: [],
+                revenueByDay: [],
+                ordersByStatus: {}
+            }
         }));
 
         const adminUrl = 'http://localhost:3002';

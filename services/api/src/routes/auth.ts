@@ -214,7 +214,7 @@ router.get('/me', requireAuth, async (req: Request, res: Response): Promise<void
 });
 
 // Default page layouts for new stores
-function defaultLandingLayout() {
+export function defaultLandingLayout() {
   return [
     {
       id: 'hero-1',
@@ -239,7 +239,7 @@ function defaultLandingLayout() {
   ];
 }
 
-function defaultProductsLayout() {
+export function defaultProductsLayout() {
   return [
     {
       id: 'products-header',

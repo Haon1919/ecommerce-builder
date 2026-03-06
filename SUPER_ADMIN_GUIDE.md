@@ -59,6 +59,18 @@ PII is encrypted using AES-256.
 
 ---
 
+## 4. Tenant Management
+
+You can view all registered stores on the **Tenants** page.
+
+*   **View Stores:** The list shows store metadata, active status, theme, and counts for products, orders, and users.
+*   **Toggle Status:** You can enable or disable a store using the Active/Disabled toggle. Disabled stores cannot be accessed by their owners or customers.
+*   **Create Store:** You can manually create a new store by clicking the "Create Store" button on the top right.
+    *   You will be asked to provide the Store Name, Store Slug, Owner Name, Owner Email, and a secure password.
+    *   This will immediately create the store with default layouts, base roles, and the owner user.
+
+---
+
 ## 8. Promotions & Offers
 
 The platform includes a powerful, rule-based Promotion Engine. Store admins manage their own offers, but you can see the **Total Discount** impact on platform-wide revenue in your dashboard charts.

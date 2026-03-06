@@ -119,6 +119,54 @@ describe('Store Routes', () => {
     });
   });
 
+  // --- POST / ---
+  describe('POST / (Super Admin)', () => {
+    it('should create a new store and owner user', async () => {
+      const payload = {
+        storeName: 'New Store',
+        storeSlug: 'new-store',
+        ownerName: 'Owner Name',
+        ownerEmail: 'owner@newstore.com',
+        ownerPassword: 'password123',
+      };
+
+      mockedPrisma.store.findUnique.mockResolvedValueOnce(null);
+      mockedPrisma.store.create.mockResolvedValueOnce({
+        id: 'new-store-123',
+        slug: 'new-store',
+        name: 'New Store',
+        active: true,
+        roles: [{ id: 'role-123', name: 'Owner' }]
+      } as any);
+      mockedPrisma.user.create.mockResolvedValueOnce({
+        id: 'user-123',
+        email: 'owner@newstore.com',
+        name: 'Owner Name'
+      } as any);
+
+      const res = await request(app).post('/').send(payload);
+      expect(res.status).toBe(201);
+      expect(res.body.store.name).toBe('New Store');
+      expect(res.body.owner.email).toBe('owner@newstore.com');
+
+      expect(mockedPrisma.store.create).toHaveBeenCalled();
+      expect(mockedPrisma.user.create).toHaveBeenCalled();
+    });
+
+    it('should return 409 if store slug already exists', async () => {
+      const payload = {
+        storeName: 'New Store',
+        storeSlug: 'new-store',
+        ownerName: 'Owner Name',
+        ownerEmail: 'owner@newstore.com',
+        ownerPassword: 'password123',
+      };
+      mockedPrisma.store.findUnique.mockResolvedValueOnce(sampleStore as any);
+      const res = await request(app).post('/').send(payload);
+      expect(res.status).toBe(409);
+    });
+  });
+
   // --- GET / ---
   describe('GET / (Super Admin)', () => {
     it('should return a list of all stores', async () => {

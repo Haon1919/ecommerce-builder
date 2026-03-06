@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { z } from 'zod';
+import bcrypt from 'bcryptjs';
+import { defaultLandingLayout, defaultProductsLayout } from './auth';
 import crypto from 'crypto';
 import { prisma } from '../db';
 import { requireSuperAdmin } from '../middleware/auth';
@@ -8,6 +10,14 @@ import { encrypt, decrypt } from '../services/encryption';
 import { processAdminChat } from '../services/admin-gemini';
 
 const router = Router();
+
+const createStoreSchema = z.object({
+  storeName: z.string().min(1),
+  storeSlug: z.string().min(1),
+  ownerName: z.string().min(1),
+  ownerEmail: z.string().email(),
+  ownerPassword: z.string().min(8),
+});
 
 const storeSettingsSchema = z.object({
   name: z.string().min(1).optional(),
@@ -168,6 +178,75 @@ router.post('/:storeId/admin-chat', requirePermission('settings:read'), async (r
   res.json(result);
 });
 
+// POST /stores - super admin create store
+router.post('/', requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
+  const parsed = createStoreSchema.safeParse(req.body);
+  if (!parsed.success) {
+    res.status(400).json({ error: 'Invalid input', details: parsed.error.errors });
+    return;
+  }
+
+  const { storeName, storeSlug, ownerName, ownerEmail, ownerPassword } = parsed.data;
+
+  try {
+    const existing = await prisma.store.findUnique({ where: { slug: storeSlug } });
+    if (existing) {
+      res.status(409).json({ error: 'Store slug already taken' });
+      return;
+    }
+
+    const hashedPassword = await bcrypt.hash(ownerPassword, 12);
+
+    const store = await prisma.store.create({
+      data: {
+        slug: storeSlug,
+        name: storeName,
+        roles: {
+          create: [
+            { name: 'Owner', description: 'Full access to all store resources', isStatic: true, permissions: { create: [{ action: '*:*' }] } },
+            { name: 'Product Manager', description: 'Can manage products and inventory', isStatic: true, permissions: { create: [{ action: 'products:*' }] } },
+            { name: 'Support', description: 'Can view orders and manage support tickets', isStatic: true, permissions: { create: [{ action: 'tickets:*' }, { action: 'orders:read' }] } }
+          ]
+        },
+        pages: {
+          createMany: {
+            data: [
+              { type: 'LANDING', slug: '', title: 'Home', layout: JSON.stringify(defaultLandingLayout()) },
+              { type: 'PRODUCTS', slug: 'products', title: 'Products', layout: JSON.stringify(defaultProductsLayout()) },
+              { type: 'CART', slug: 'cart', title: 'Cart', layout: JSON.stringify([]) },
+              { type: 'CHECKOUT', slug: 'cart/checkout', title: 'Checkout', layout: JSON.stringify([]) },
+              { type: 'CONFIRMATION', slug: 'cart/confirmation', title: 'Order Confirmation', layout: JSON.stringify([]) },
+              { type: 'CONTACT', slug: 'contact', title: 'Contact Us', layout: JSON.stringify([]) },
+            ],
+          },
+        },
+      },
+      include: { roles: true },
+    });
+
+    const ownerRole = store.roles.find(r => r.name === 'Owner');
+    if (!ownerRole) throw new Error('Owner role was not created');
+
+    const user = await prisma.user.create({
+      data: {
+        email: ownerEmail,
+        password: hashedPassword,
+        name: ownerName,
+        storeId: store.id,
+        roleId: ownerRole.id,
+      },
+      select: { id: true, email: true, name: true }
+    });
+
+    res.status(201).json({
+      store: { id: store.id, slug: store.slug, name: store.name, active: store.active },
+      owner: user
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 // GET /stores - super admin list all stores
 router.get('/', requireSuperAdmin, async (req: Request, res: Response): Promise<void> => {
   const { limit = '20', offset = '0', active } = req.query;
@@ -220,7 +299,7 @@ router.get('/:storeId/api-keys', requirePermission('settings:read'), async (req:
   });
 
   // Mask keys for display: reveal only last 4 chars
-  const maskedKeys = keys.map(k => ({
+  const maskedKeys = keys.map((k: { id: string, name: string, key: string, lastUsedAt: Date | null, createdAt: Date }) => ({
     ...k,
     key: `••••••••••••${k.key.slice(-4)}`,
   }));
