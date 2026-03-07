@@ -21,7 +21,7 @@ export default function LiveCommercePage() {
         <div className="p-8 max-w-4xl mx-auto">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-gray-900 mb-2">Live Commerce</h1>
-                <p className="text-gray-600">Upload and manage shoppable videos for your storefront's interactive feed.</p>
+                <p className="text-gray-600">Upload and manage shoppable videos for your storefront&apos;s interactive feed.</p>
             </div>
 
             <VideoUploadForm storeId={store.id} />

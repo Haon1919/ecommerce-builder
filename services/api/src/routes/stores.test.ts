@@ -15,6 +15,9 @@ jest.mock('../db', () => ({
 jest.mock('../middleware/auth', () => ({
   requireStoreAdmin: (req: any, res: any, next: any) => next(),
   requireSuperAdmin: (req: any, res: any, next: any) => next(),
+  requireAuth: (req: any, res: any, next: any) => next(),
+  requireAdminOrSuperAdmin: (req: any, res: any, next: any) => next(),
+  optionalAuth: (req: any, res: any, next: any) => next(),
 }));
 
 jest.mock('../middleware/auth.permission', () => ({
