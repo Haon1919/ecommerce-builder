@@ -43,7 +43,7 @@ test.describe('Storefront Checkout Flow with Shipping Rates', () => {
             });
         });
 
-        await page.route('**/api/stores/*/products/prod-1', async route => {
+        await page.route('**/api/stores/*/products/prod-1*', async route => {
             await route.fulfill({
                 status: 200,
                 contentType: 'application/json',
