@@ -38,10 +38,10 @@ export default defineConfig({
         },
     ],
 
-    // webServer: {
-    //     command: 'npm run dev',
-    //     url: 'http://localhost:3002', // Checking one is usually enough, or wait for all to be up
-    //     timeout: 120 * 1000,
-    //     reuseExistingServer: !process.env.CI,
-    // },
+    webServer: {
+        command: 'npm run dev',
+        url: 'http://127.0.0.1:3002', // Checking one is usually enough, or wait for all to be up
+        timeout: 120 * 1000,
+        reuseExistingServer: !process.env.CI,
+    },
 });
