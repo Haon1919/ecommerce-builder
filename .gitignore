@@ -62,3 +62,6 @@ uploads/
 
 *storybook.log
 storybook-static
+
+# Turbo
+.turbo/
